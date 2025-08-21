@@ -5,10 +5,11 @@ from PySide6.QtCore import Qt, QDate
 import sys
 
 from logic.Class import PatientData, Gender, CYP2C19
-from logic.Mod1 import mod1_first, mod1_first_ABCB1, mod1_second
-from logic.Mod2 import mod2_first
-from logic.Mod3 import mod3_first
-from logic.Prognosis import calculate_prognosis, prognosis_text
+from logic.Mod1 import mod1, mod1_text
+from logic.Mod2 import mod2
+from logic.Mod3 import mod3
+from logic.Mod4 import mod4
+from logic.Mod5 import mod5
 import os
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
