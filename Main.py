@@ -1,19 +1,50 @@
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QPushButton, QTextEdit, QCheckBox, QFileDialog, QMessageBox, QGroupBox, QHBoxLayout, QLabel, QScrollArea
+    QApplication, QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, 
+    QPushButton, QTextEdit, QCheckBox, QFileDialog, QMessageBox, QGroupBox, 
+    QHBoxLayout, QLabel, QScrollArea, QDialog, QButtonGroup, QRadioButton
 )
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from PySide6.QtGui import QTextDocument
 import sys
-
 from logic.Class import PatientData, Gender, CYP2C19
-from logic.Mod1 import mod1_first, mod1_first_ABCB1, mod1_second
-from logic.Mod2 import mod2_first
-from logic.Mod3 import mod3_first
-from logic.Prognosis import calculate_prognosis, prognosis_text
+from logic.Mod1 import mod1, mod1_text
+from logic.Mod2 import mod2
+from logic.Mod3 import mod3
+from logic.Mod4 import mod4
+from logic.Mod5 import mod5
 import os
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
+import docx
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_BREAK
 
 DEFAULT_FILENAME = "patients.xlsx"
+
+def format_html_table(headers, rows):
+    """Форматирует данные в HTML таблицу"""
+    html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0;">'
+    
+    # Заголовки
+    html += '<tr style="background-color: #f2f2f2; font-weight: bold;">'
+    for header in headers:
+        html += f'<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">{header}</th>'
+    html += '</tr>'
+    
+    # Данные
+    for row in rows:
+        html += '<tr>'
+        for cell in row:
+            html += f'<td style="border: 1px solid #ddd; padding: 8px;">{cell}</td>'
+        html += '</tr>'
+    
+    html += '</table>'
+    return html
 
 def create_or_load_workbook(filename=DEFAULT_FILENAME):
     if os.path.exists(filename):
@@ -25,7 +56,8 @@ def create_or_load_workbook(filename=DEFAULT_FILENAME):
         if ws is None:
             ws = wb.create_sheet("Sheet1")
         ws.append([
-            "Пол", "Возраст", "Вес", "Рост", "Креатинин", "Клиренс креатинина", "MPV", "PLCR",
+            "Дата обследования", "ФИО / № истории болезни", "Обследование",
+            "Пол", "Возраст", "Вес", "Рост", "Креатинин", "MPV", "PLCR",
             "Спонтанная агрегация", "Индуц. агрегация 1 мкМоль АДФ", "Индуц. агрегация 5 мкМоль АДФ",
             "Индуц. агрегация 15 мкл арахидоновой кислоты", "Генотип CYP2C19", "Генотип ABCB1",
             "Препараты", "Состояние агрегации", "Скорость выведения клопидогрела (ABCB1)",
@@ -51,12 +83,102 @@ def append_patient_data(filename, data_row):
     wb, ws = create_or_load_workbook(filename)
     if ws is not None:
         ws.append(data_row)
-        autofit_columns(ws)  # <--- вот здесь!
+        autofit_columns(ws)
         wb.save(filename)
     else:
         raise ValueError("Не удалось создать или получить рабочий лист Excel")
 
-# Удалена функция create_mpv_chart
+def set_cell_border(cell, border_style="single", border_size=4, border_color="000000"):
+    """Устанавливает границы для ячейки таблицы в docx"""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    
+    # Создаем элемент границы
+    tcBorders = OxmlElement('w:tcBorders')
+    
+    # Устанавливаем границы для всех сторон
+    for border_name in ['top', 'left', 'bottom', 'right']:
+        border = OxmlElement(f'w:{border_name}')
+        border.set(qn('w:val'), border_style)
+        border.set(qn('w:sz'), str(border_size))
+        border.set(qn('w:color'), border_color)
+        tcBorders.append(border)
+    
+    tcPr.append(tcBorders)
+
+def add_table_with_title(doc, headers, rows, title, column_widths=None):
+    """Добавляет таблицу с заголовком, обеспечивая перенос на новую страницу при необходимости"""
+    # Добавляем заголовок таблицы
+    title_para = doc.add_paragraph(title)
+    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_para.runs[0].bold = True
+    title_para.runs[0].font.size = Pt(12)
+    
+    # Добавляем разрыв страницы перед таблицей, если она не помещается
+    # Word автоматически перенесет таблицу на следующую страницу при необходимости
+    doc.add_paragraph()  # Пустая строка
+    
+    # Создаем таблицу
+    table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
+    table.style = 'Table Grid'
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Устанавливаем ширины колонок если указаны
+    if column_widths:
+        for i, width in enumerate(column_widths):
+            for cell in table.columns[i].cells:
+                cell.width = Inches(width)
+    
+    # Заполняем заголовки
+    for i, header in enumerate(headers):
+        cell = table.cell(0, i)
+        cell.text = header
+        cell.paragraphs[0].runs[0].bold = True
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_cell_border(cell)
+    
+    # Заполняем данные
+    for row_idx, row_data in enumerate(rows, 1):
+        for col_idx, cell_data in enumerate(row_data):
+            cell = table.cell(row_idx, col_idx)
+            cell.text = str(cell_data)
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            set_cell_border(cell)
+    
+    # Добавляем пустую строку после таблицы
+    doc.add_paragraph()
+
+def add_simple_table(doc, headers, rows, column_widths=None):
+    """Добавляет таблицу без заголовка"""
+    # Создаем таблицу
+    table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
+    table.style = 'Table Grid'
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Устанавливаем ширины колонок если указаны
+    if column_widths:
+        for i, width in enumerate(column_widths):
+            for cell in table.columns[i].cells:
+                cell.width = Inches(width)
+    
+    # Заполняем заголовки
+    for i, header in enumerate(headers):
+        cell = table.cell(0, i)
+        cell.text = header
+        cell.paragraphs[0].runs[0].bold = True
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        set_cell_border(cell)
+    
+    # Заполняем данные
+    for row_idx, row_data in enumerate(rows, 1):
+        for col_idx, cell_data in enumerate(row_data):
+            cell = table.cell(row_idx, col_idx)
+            cell.text = str(cell_data)
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            set_cell_border(cell)
+    
+    # Добавляем пустую строку после таблицы
+    doc.add_paragraph()
 
 class ReportWindow(QWidget):
     def __init__(self, report_text, patient_data=None, excel_filename="patients.xlsx"):
@@ -65,12 +187,13 @@ class ReportWindow(QWidget):
         self.resize(900, 700)
         self.patient_data = patient_data
         self.excel_filename = excel_filename
+        self.current_report_data = None
         
         # Главный layout
         main_layout = QVBoxLayout(self)
         
         # Заголовок
-        header_label = QLabel("МЕДИЦИНСКИЙ ОТЧЕТ ПО ПАЦИЕНТУ")
+        header_label = QLabel("МЕДИЦИНСКИЙ ОТЧЕТ ПО ПАЦИЕНТу")
         header_label.setStyleSheet("""
             QLabel {
                 font-size: 18px;
@@ -85,16 +208,6 @@ class ReportWindow(QWidget):
         """)
         header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(header_label)
-        
-        # Пример: добавляем диаграмму MPV, если есть данные
-        if patient_data and len(patient_data) > 6 and patient_data[6]:
-            try:
-                mpv_value = float(patient_data[6])
-                # chart_label = create_mpv_chart(mpv_value) # Удалено
-                # main_layout.addWidget(chart_label) # Удалено
-                pass # Удалено
-            except Exception as e:
-                print(f'Ошибка построения диаграммы MPV: {e}')
         
         # Область прокрутки для текста
         scroll_area = QScrollArea()
@@ -152,10 +265,10 @@ class ReportWindow(QWidget):
             }
         """)
         
-        # Кнопка сохранения в файл
-        save_button = QPushButton("💾 Сохранить в файл")
-        save_button.clicked.connect(self.save_to_file)
-        save_button.setStyleSheet("""
+        # Кнопка сохранения в DOC
+        doc_button = QPushButton("📝 Сохранить в DOC")
+        doc_button.clicked.connect(self.save_to_doc)
+        doc_button.setStyleSheet("""
             QPushButton {
                 padding: 10px 20px;
                 border: 2px solid #3498db;
@@ -173,52 +286,29 @@ class ReportWindow(QWidget):
             }
         """)
         
-        # Кнопка сохранения в Excel
-        excel_button = QPushButton("📊 Сохранить в Excel")
-        excel_button.clicked.connect(self.save_to_excel)
-        excel_button.setStyleSheet("""
-            QPushButton {
-                padding: 10px 20px;
-                border: 2px solid #f39c12;
-                border-radius: 5px;
-                background-color: #f39c12;
-                color: white;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #e67e22;
-            }
-            QPushButton:pressed {
-                background-color: #d35400;
-            }
-        """)
-        
-        
         # Кнопка закрытия
         close_button = QPushButton("❌ Закрыть")
         close_button.clicked.connect(self.close)
         close_button.setStyleSheet("""
             QPushButton {
                 padding: 10px 20px;
-                border: 2px solid #e74c3c;
+                border: 2px solid #7f8c8d;
                 border-radius: 5px;
-                background-color: #e74c3c;
+                background-color: #7f8c8d;
                 color: white;
                 font-weight: bold;
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #c0392b;
+                background-color: #636e72;
             }
             QPushButton:pressed {
-                background-color: #a93226;
+                background-color: #2d3436;
             }
         """)
         
         button_layout.addWidget(copy_button)
-        button_layout.addWidget(save_button)
-        button_layout.addWidget(excel_button)
+        button_layout.addWidget(doc_button)
         button_layout.addStretch()
         button_layout.addWidget(close_button)
         
@@ -249,34 +339,8 @@ class ReportWindow(QWidget):
         """)
     
     def format_report_text(self, text):
-        """Форматирует текст отчета для лучшего отображения"""
-        # Заменяем разделители на более красивые
-        text = text.replace("==============================", "╔══════════════════════════════════════════════════════════════╗")
-        text = text.replace("------------------------------", "╟──────────────────────────────────────────────────────────────╢")
-        
-        # Добавляем цветовое выделение для заголовков
-        lines = text.split('\n')
-        formatted_lines = []
-        
-        for line in lines:
-            if line.strip().startswith('I.') or line.strip().startswith('II.') or line.strip().startswith('III.') or \
-               line.strip().startswith('IV.') or line.strip().startswith('V.') or line.strip().startswith('VI.') or \
-               line.strip().startswith('VII.') or line.strip().startswith('VIII.'):
-                formatted_lines.append(f"<h3 style='color: #2c3e50; background-color: #ecf0f1; padding: 5px; border-radius: 3px;'>{line}</h3>")
-            elif line.strip().startswith('МЕДИЦИНСКИЙ ОТЧЕТ'):
-                formatted_lines.append(f"<h2 style='color: #3498db; text-align: center; font-size: 16px;'>{line}</h2>")
-            elif line.strip().startswith('Модуль'):
-                formatted_lines.append(f"<h4 style='color: #e67e22;'>{line}</h4>")
-            elif line.strip().startswith('Коэффициент прогноза:'):
-                formatted_lines.append(f"<p style='color: #27ae60; font-weight: bold;'>{line}</p>")
-            elif line.strip().startswith('Оценка:'):
-                formatted_lines.append(f"<p style='color: #27ae60; font-weight: bold;'>{line}</p>")
-            elif line.strip().startswith('╔') or line.strip().startswith('╟'):
-                formatted_lines.append(f"<p style='color: #7f8c8d; font-family: monospace;'>{line}</p>")
-            else:
-                formatted_lines.append(f"<p>{line}</p>")
-        
-        return '\n'.join(formatted_lines)
+        """Для HTML контента просто возвращаем как есть"""
+        return text
     
     def copy_to_clipboard(self):
         """Копирует отчет в буфер обмена"""
@@ -284,48 +348,82 @@ class ReportWindow(QWidget):
         clipboard.setText(self.text.toPlainText())
         QMessageBox.information(self, "Копирование", "Отчет скопирован в буфер обмена!")
     
-    def save_to_file(self):
-        """Сохраняет отчет в текстовый файл"""
+    def save_to_doc(self):
+        """Сохраняет отчет в DOC файл с табличным форматом"""
+        if not self.current_report_data:
+            QMessageBox.warning(self, "Предупреждение", "Нет данных для сохранения в DOC")
+            return
+            
         filename, _ = QFileDialog.getSaveFileName(
             self, 
-            "Сохранить отчет", 
-            f"медицинский_отчет_{QDate.currentDate().toString('yyyy-MM-dd')}.txt",
-            "Текстовые файлы (*.txt);;Все файлы (*)"
+            "Сохранить отчет в DOC", 
+            f"медицинский_отчет_{QDate.currentDate().toString('yyyy-MM-dd')}.docx",
+            "Word Documents (*.docx);;Все файлы (*)"
         )
         if filename:
             try:
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(self.text.toPlainText())
-                QMessageBox.information(self, "Сохранение", f"Отчет сохранен в файл:\n{filename}")
+                # Создаем новый документ
+                doc = docx.Document()
+                
+                # Добавляем заголовок
+                title = doc.add_heading('РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ', 0)
+                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                
+                # Добавляем основную информацию
+                doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
+                doc.add_paragraph(f"ФИО / № истории болезни: {self.current_report_data['name_or_record']}")
+                doc.add_paragraph(f"Обследование: {self.current_report_data['examination_type']}")
+                doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
+                doc.add_paragraph()
+                
+                # Добавляем информацию о препаратах
+                doc.add_paragraph().add_run("Прием антиагрегантов:").bold = True
+                doc.add_paragraph(f"Антиагреганты, которые пациент принимает: {self.current_report_data['drugs']}")
+                doc.add_paragraph()
+                
+                # Добавляем таблицы с данными
+                add_table_with_title(doc, 
+                    ["Параметр", "Результат пациента", "Критерий", "Оценка", "Прогноз"],
+                    self.current_report_data['main_table_rows'],
+                    "Прием антиагрегатов:"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Генотип пациента", "Оценка метаболизма", "Рекомендации"],
+                    self.current_report_data['cyp_table_rows'],
+                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ ГЕНОТИПА CYP 2C19"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Генотип пациента ABCB1", "Оценка транспорта", "Рекомендации"],
+                    self.current_report_data['abcb1_table_rows'],
+                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ ТРАНСПОРТНОЙ СИСТЕМЫ P-ГЛИКОПРОТЕИНА"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Рекомендации"],
+                    self.current_report_data['ticagrelor_table_rows'],
+                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ ТИКАГРЕЛОРОМ"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 15 мкл арахидоновой кислоты, % Т-крывая", "Критерий", "Состояние агрегации", "Рекомендации"],
+                    self.current_report_data['aspirin_table_rows'],
+                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПиИ АЦЕТИЛСАЛИЦИЛОВОЙ КИСЛОТОЙ"
+                )
+                
+                # Сохраняем документ
+                doc.save(filename)
+                QMessageBox.information(self, "Сохранение", f"Отчет сохранен в DOC файл:\n{filename}")
+                
             except Exception as e:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить файл:\n{str(e)}")
-    
-    def save_to_excel(self):
-        """Сохраняет данные пациента в Excel файл"""
-        if not self.patient_data:
-            QMessageBox.warning(self, "Предупреждение", "Данные пациента недоступны для сохранения в Excel")
-            return
-        
-        try:
-            # Используем данные пациента для сохранения в Excel
-            data_row = self.patient_data
-            
-            # Сохраняем в Excel
-            append_patient_data(self.excel_filename, data_row)
-            
-            QMessageBox.information(self, "Сохранение в Excel", 
-                                  f"Данные пациента успешно сохранены в файл:\n{self.excel_filename}")
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", 
-                               f"Не удалось сохранить данные в Excel:\n{str(e)}")
-            print(f"Ошибка сохранения в Excel: {e}")
-            import traceback
-            traceback.print_exc()
+                QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить DOC файл:\n{str(e)}")
+                print(f"Ошибка при сохранении DOC: {e}")
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Медицинское приложение")
+        self.setWindowTitle("Антиагрегантная терапия")
         self.resize(1000, 800)
         
         # Создаем главный layout
@@ -344,6 +442,20 @@ class MainWindow(QWidget):
         # === ГРУППА 1: ОСНОВНЫЕ ДАННЫЕ ПАЦИЕНТА ===
         basic_group = QGroupBox("Основные данные пациента")
         basic_layout = QFormLayout()
+        
+        # Поля ввода
+        self.date = QLineEdit()
+        self.date.setPlaceholderText("Введите дату (дд.мм.гггг)")
+        self.date.setText(QDate.currentDate().toString("dd.MM.yyyy"))
+        basic_layout.addRow("Дата обследования:", self.date)
+
+        self.name_or_record = QLineEdit()
+        self.name_or_record.setPlaceholderText("Введите ФИО или номер истории болезни")
+        basic_layout.addRow("ФИО / № истории болезни:", self.name_or_record)
+
+        self.examination_type = QComboBox()
+        self.examination_type.addItems(["Стационар", "Амбулаторно"])
+        basic_layout.addRow("Обследование:", self.examination_type)
         
         # Поля выбора
         self.gender = QComboBox()
@@ -367,39 +479,18 @@ class MainWindow(QWidget):
         basic_group.setLayout(basic_layout)
         layout.addWidget(basic_group)
 
-        # === ГРУППА 2: ГЕНОТИПЫ ===
-        genotype_group = QGroupBox("Генотипы")
-        genotype_layout = QFormLayout()
-        
-        self.cyp2c19 = QComboBox()
-        self.cyp2c19.addItem("")
-        self.cyp2c19.addItems([c.value for c in CYP2C19])
-        genotype_layout.addRow("Генотип CYP2C19:", self.cyp2c19)
-
-        self.abcb1 = QComboBox()
-        self.abcb1.addItem("")
-        self.abcb1.addItems(["TT", "TC", "CC"])
-        genotype_layout.addRow("Генотип ABCB1:", self.abcb1)
-        
-        genotype_group.setLayout(genotype_layout)
-        layout.addWidget(genotype_group)
-
-        # === ГРУППА 3: БИОХИМИЧЕСКИЕ ПОКАЗАТЕЛИ ===
+        # === ГРУППА 2: БИОХИМИЧЕСКИЕ ПОКАЗАТЕЛИ ===
         bio_group = QGroupBox("Биохимические показатели")
         bio_layout = QFormLayout()
         
         self.creatinine = QLineEdit()
         self.creatinine.setPlaceholderText("Введите креатинин (мкмоль/л)")
         bio_layout.addRow("Креатинин:", self.creatinine)
-
-        self.creatinine_clearance = QLineEdit()
-        self.creatinine_clearance.setPlaceholderText("Введите клиренс креатинина (мл/мин)")
-        bio_layout.addRow("Клиренс креатинина:", self.creatinine_clearance)
         
         bio_group.setLayout(bio_layout)
         layout.addWidget(bio_group)
 
-        # === ГРУППА 4: ТРОМБОЦИТАРНЫЕ ПОКАЗАТЕЛИ ===
+        # === ГРУППА 3: ТРОМБОЦИТАРНЫЕ ПОКАЗАТЕЛИ ===
         platelet_group = QGroupBox("Тромбоцитарные показатели")
         platelet_layout = QFormLayout()
         
@@ -414,7 +505,7 @@ class MainWindow(QWidget):
         platelet_group.setLayout(platelet_layout)
         layout.addWidget(platelet_group)
 
-        # === ГРУППА 5: АГРЕГАЦИЯ ТРОМБОЦИТОВ ===
+        # === ГРУППА 4: АГРЕГАЦИя ТРОМБОЦИТОВ ===
         aggregation_group = QGroupBox("Агрегация тромбоцитов")
         aggregation_layout = QFormLayout()
         
@@ -437,17 +528,46 @@ class MainWindow(QWidget):
         aggregation_group.setLayout(aggregation_layout)
         layout.addWidget(aggregation_group)
 
+        # === ГРУППА 5: ГЕНОТИПЫ ===
+        genotype_group = QGroupBox("Генотипы")
+        genotype_layout = QFormLayout()
+        
+        self.cyp2c19 = QComboBox()
+        self.cyp2c19.addItem("")
+        self.cyp2c19.addItems([c.value for c in CYP2C19])
+        genotype_layout.addRow("Генотип CYP2C19:", self.cyp2c19)
+
+        self.abcb1 = QComboBox()
+        self.abcb1.addItem("")
+        self.abcb1.addItems(["TT", "TC", "CC"])
+        genotype_layout.addRow("Генотип ABCB1:", self.abcb1)
+        
+        genotype_group.setLayout(genotype_layout)
+        layout.addWidget(genotype_group)
+
         # === ГРУППА 6: ПРЕПАРАТЫ ===
         drugs_group = QGroupBox("Препараты")
         drugs_layout = QVBoxLayout()
         
-        drugs_label = QLabel("Выберите принимаемые препараты:")
+        drugs_label = QLabel("Выберите принимаемый препарат:")
         drugs_layout.addWidget(drugs_label)
         
-        self.drug_aspirin = QCheckBox("АСК")
-        self.drug_clopidogrel = QCheckBox("Клопидогрел")
-        self.drug_aspirin_clopidogrel = QCheckBox("АСК+клопидогрел")
-        self.drug_aspirin_ticagrelor = QCheckBox("АСК+тикагрелор")
+        # Создаем группу радиокнопок для выбора только одного препарата
+        self.drugs_button_group = QButtonGroup(self)
+        
+        self.drug_aspirin = QRadioButton("АСК")
+        self.drug_clopidogrel = QRadioButton("Клопидогрел")
+        self.drug_aspirin_clopidogrel = QRadioButton("АСК+клопидогрел")
+        self.drug_aspirin_ticagrelor = QRadioButton("АСК+тикагрелор")
+        
+        # Добавляем радиокнопки в группу
+        self.drugs_button_group.addButton(self.drug_aspirin, 1)
+        self.drugs_button_group.addButton(self.drug_clopidogrel, 2)
+        self.drugs_button_group.addButton(self.drug_aspirin_clopidogrel, 3)
+        self.drugs_button_group.addButton(self.drug_aspirin_ticagrelor, 4)
+        
+        # Устанавливаем "АСК" по умолчанию
+        self.drug_aspirin.setChecked(True)
         
         drugs_layout.addWidget(self.drug_aspirin)
         drugs_layout.addWidget(self.drug_clopidogrel)
@@ -465,13 +585,10 @@ class MainWindow(QWidget):
         self.report_button.clicked.connect(self.generate_report)
         actions_layout.addWidget(self.report_button)
 
-        self.save_excel_button = QPushButton("💾 Сохранить в Excel")
-        self.save_excel_button.clicked.connect(self.save_to_excel)
-        actions_layout.addWidget(self.save_excel_button)
-
-        self.choose_excel_button = QPushButton("📁 Выбрать файл Excel")
-        self.choose_excel_button.clicked.connect(self.choose_excel_file)
-        actions_layout.addWidget(self.choose_excel_button)
+        # Убрана кнопка сохранения в PDF
+        self.save_doc_button = QPushButton("📝 Сохранить отчет в DOC")
+        self.save_doc_button.clicked.connect(self.save_report_to_doc)
+        actions_layout.addWidget(self.save_doc_button)
         
         actions_group.setLayout(actions_layout)
         layout.addWidget(actions_group)
@@ -483,8 +600,11 @@ class MainWindow(QWidget):
         main_layout.addWidget(scroll_area)
 
         self.excel_filename = DEFAULT_FILENAME
+        self.patient_data = None
+        self.current_report_html = ""
+        self.current_report_data = None
 
-        # Применяем стили для лучшего визуального разделения
+        # Применяем стили
         self.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -532,30 +652,17 @@ class MainWindow(QWidget):
             QPushButton:pressed {
                 background-color: #21618c;
             }
-            QCheckBox {
+            QRadioButton {
                 spacing: 8px;
                 font-weight: normal;
             }
-            QCheckBox::indicator {
+            QRadioButton::indicator {
                 width: 18px;
                 height: 18px;
             }
             QScrollArea {
                 border: none;
                 background-color: transparent;
-            }
-            QScrollBar:vertical {
-                background-color: #f0f0f0;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #c0c0c0;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #a0a0a0;
             }
         """)
 
@@ -564,7 +671,6 @@ class MainWindow(QWidget):
         self.weight.textChanged.connect(self.validate_weight)
         self.height_field.textChanged.connect(self.validate_height)
         self.creatinine.textChanged.connect(self.validate_creatinine)
-        self.creatinine_clearance.textChanged.connect(self.validate_creatinine_clearance)
         self.mpv.textChanged.connect(self.validate_mpv)
         self.plcr.textChanged.connect(self.validate_plcr)
         self.spontaneous_aggregation.textChanged.connect(self.validate_spontaneous_aggregation)
@@ -572,8 +678,8 @@ class MainWindow(QWidget):
         self.induced_aggregation_5_ADP.textChanged.connect(self.validate_induced_aggregation_5_ADP)
         self.induced_aggregation_15_ARA.textChanged.connect(self.validate_induced_aggregation_15_ARA)
 
+    # Методы валидации
     def validate_age(self):
-        """Проверка возраста"""
         try:
             age = int(self.age.text())
             if age <= 0 or age > 120:
@@ -587,7 +693,6 @@ class MainWindow(QWidget):
             return False
 
     def validate_weight(self):
-        """Проверка веса"""
         try:
             weight = float(self.weight.text())
             if weight <= 0 or weight > 300:
@@ -601,7 +706,6 @@ class MainWindow(QWidget):
             return False
 
     def validate_height(self):
-        """Проверка роста"""
         try:
             height = float(self.height_field.text())
             if height <= 0 or height > 250:
@@ -619,7 +723,6 @@ class MainWindow(QWidget):
                 return True
 
     def validate_creatinine(self):
-        """Проверка креатинина"""
         try:
             creatinine = float(self.creatinine.text())
             if creatinine <= 0 or creatinine > 1000:
@@ -629,33 +732,14 @@ class MainWindow(QWidget):
                 self.creatinine.setStyleSheet("")
                 return True
         except ValueError:
-            if self.creatinine.text():  # Только если поле не пустое
+            if self.creatinine.text():
                 self.creatinine.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
                 return False
             else:
                 self.creatinine.setStyleSheet("")
                 return True
 
-    def validate_creatinine_clearance(self):
-        """Проверка клиренса креатинина"""
-        try:
-            clearance = float(self.creatinine_clearance.text())
-            if clearance <= 0 or clearance > 200:
-                self.creatinine_clearance.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.creatinine_clearance.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.creatinine_clearance.text():
-                self.creatinine_clearance.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.creatinine_clearance.setStyleSheet("")
-                return True
-
     def validate_mpv(self):
-        """Проверка MPV"""
         try:
             mpv = float(self.mpv.text())
             if mpv <= 0 or mpv > 20:
@@ -673,7 +757,6 @@ class MainWindow(QWidget):
                 return True
 
     def validate_plcr(self):
-        """Проверка PLCR"""
         try:
             plcr = float(self.plcr.text())
             if plcr < 0 or plcr > 100:
@@ -691,7 +774,6 @@ class MainWindow(QWidget):
                 return True
 
     def validate_spontaneous_aggregation(self):
-        """Проверка спонтанной агрегации"""
         try:
             agg = float(self.spontaneous_aggregation.text())
             if agg < 0 or agg > 100:
@@ -709,7 +791,6 @@ class MainWindow(QWidget):
                 return True
 
     def validate_induced_aggregation_1_ADP(self):
-        """Проверка индуцированной агрегации 1 мкМоль АДФ"""
         try:
             agg = float(self.induced_aggregation_1_ADP.text())
             if agg < 0 or agg > 100:
@@ -727,7 +808,6 @@ class MainWindow(QWidget):
                 return True
 
     def validate_induced_aggregation_5_ADP(self):
-        """Проверка индуцированной агрегации 5 мкМоль АДФ"""
         try:
             agg = float(self.induced_aggregation_5_ADP.text())
             if agg < 0 or agg > 100:
@@ -745,7 +825,6 @@ class MainWindow(QWidget):
                 return True
 
     def validate_induced_aggregation_15_ARA(self):
-        """Проверка индуцированной агрегации 15 мкл арахидоновой кислоты"""
         try:
             agg = float(self.induced_aggregation_15_ARA.text())
             if agg < 0 or agg > 100:
@@ -763,13 +842,11 @@ class MainWindow(QWidget):
                 return True
 
     def validate_all_fields(self):
-        """Проверка всех полей перед сохранением"""
         validations = [
             self.validate_age(),
             self.validate_weight(),
             self.validate_height(),
             self.validate_creatinine(),
-            self.validate_creatinine_clearance(),
             self.validate_mpv(),
             self.validate_plcr(),
             self.validate_spontaneous_aggregation(),
@@ -784,256 +861,655 @@ class MainWindow(QWidget):
             return False
         return True
 
+    def format_html_table(self, headers, rows):
+        html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 12px;">'
+        
+        # Заголовки
+        html += '<tr style="background-color: #f2f2f2; font-weight: bold;">'
+        for header in headers:
+            html += f'<th style="border: 1px solid #000; padding: 8px; text-align: center;">{header}</th>'
+        html += '</tr>'
+        
+        # Данные
+        for row in rows:
+            html += '<tr>'
+            for cell in row:
+                html += f'<td style="border: 1px solid #000; padding: 8px; text-align: center;">{cell}</td>'
+            html += '</tr>'
+        
+        html += '</table>'
+        return html
+
+    def get_selected_drug(self):
+        if self.drug_aspirin.isChecked():
+            return "АСК"
+        elif self.drug_clopidogrel.isChecked():
+            return "клопидогрел"
+        elif self.drug_aspirin_clopidogrel.isChecked():
+            return "АСК+клопидогрел"
+        elif self.drug_aspirin_ticagrelor.isChecked():
+            return "АСК+тикагрелор"
+        else:
+            return ""
+
+    def save_report_to_doc(self):
+        if not hasattr(self, 'current_report_data') or not self.current_report_data:
+            QMessageBox.warning(self, "Предупреждение", "Сначала сформируйте отчет")
+            return
+            
+        filename, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Сохранить отчет в DOC", 
+            f"медицинский_отчет_{QDate.currentDate().toString('yyyy-MM-dd')}.docx",
+            "Word Documents (*.docx);;Все файлы (*)"
+        )
+        if filename:
+            try:
+                # Создаем новый документ
+                doc = docx.Document()
+                
+                # Добавляем заголовок
+                title = doc.add_heading('РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ', 0)
+                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                
+                # Добавляем основную информацию
+                doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
+                doc.add_paragraph(f"ФИО / № истории болезни: {self.current_report_data['name_or_record']}")
+                doc.add_paragraph(f"Обследование: {self.current_report_data['examination_type']}")
+                doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
+                doc.add_paragraph()
+                
+                # Добавляем информацию о препаратах
+                doc.add_paragraph().add_run("Прием антиагрегантов:").bold = True
+                doc.add_paragraph(f"Антиагреганты, которые пациент принимает: {self.current_report_data['drugs']}")
+                doc.add_paragraph()
+                
+                # Добавляем таблицы с данными
+                add_table_with_title(doc, 
+                    ["Параметр", "Результат пациента", "Критерий", "Оценка", "Прогноз"],
+                    self.current_report_data['main_table_rows'],
+                    "Прием антиагрегатов:"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Генотип пациента", "Оценка метаболизма", "Рекомендации"],
+                    self.current_report_data['cyp_table_rows'],
+                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ ГЕНОТИПА CYP 2C19"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Генотип пациента ABCB1", "Оценка транспорта", "Рекомендации"],
+                    self.current_report_data['abcb1_table_rows'],
+                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ ТРАНСПОРТНОЙ СИСТЕМЫ P-ГЛИКОПРОТЕИНА"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Рекомендации"],
+                    self.current_report_data['ticagrelor_table_rows'],
+                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ ТИКАГРЕЛОРОМ"
+                )
+                
+                add_table_with_title(doc,
+                    ["Индуцированная агрегация 15 мкл арахидоновой кислоты, % Т-крывая", "Критерий", "Состояние агрегации", "Рекомендации"],
+                    self.current_report_data['aspirin_table_rows'],
+                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ АЦЕТИЛСАЛИЦИЛОВОЙ КИСЛОТОЙ"
+                )
+                
+                # Сохраняем документ
+                doc.save(filename)
+                QMessageBox.information(self, "Сохранение", f"Отчет сохранен в DOC файл:\n{filename}")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить DOC файл:\n{str(e)}")
+                print(f"Ошибка при сохранении DOC: {e}")
+
     def generate_report(self):
         try:
             if not self.validate_all_fields():
                 return
             
             # Сбор данных
-            gender = Gender(self.gender.currentText()) if self.gender.currentText() else None
-            age = int(self.age.text()) if self.age.text() else None
-            T = float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else None
-            cyp = self.cyp2c19.currentText() if self.cyp2c19.currentText() else None
-            cyp_enum = CYP2C19(cyp) if cyp else None
+            date = self.date.text() if self.date.text() else QDate.currentDate().toString("dd.MM.yyyy")
+            name_or_record = self.name_or_record.text() if self.name_or_record.text() else "____________________________________"
+            age = self.age.text() if self.age.text() else "______"
+            examination_type = self.examination_type.currentText()
+            
+            # Получаем данные агрегации
+            T_adp = float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else None
+            T_ara = float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else None
+            
+            # Генетические данные
+            cyp_genotype = self.cyp2c19.currentText() if self.cyp2c19.currentText() else "______"
+            abcb1_genotype = self.abcb1.currentText() if self.abcb1.currentText() else "______"
+            
+            # Данные о терапии
+            selected_drug = self.get_selected_drug()
+            drugs_str = selected_drug if selected_drug else "___________"
 
-            T2 = float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else None
-            T3 = float(self.spontaneous_aggregation.text()) if self.spontaneous_aggregation.text() else None
-
-            patient = PatientData(
-                gender=gender,
-                age=age,
-                T=T,
-                cyp2c19=cyp_enum
-            )
-
-            # Модуль 1
-            mod1_score, mod1_recommendations = mod1_first(patient.T, patient.cyp2c19.value if patient.cyp2c19 else None)
-            mod1_text = f"Модуль 1:\nОценка: {mod1_score}\nРекомендации:\n" + "\n".join(mod1_recommendations)
-
-            # Модуль 2
-            mod2_res = mod2_first(T2)
-            mod2_text = (
-                f"Модуль 2:\n"
-                f"{mod2_res[0]}\n"
-                f"{mod2_res[1]}\n"
-                f"{mod2_res[2] if len(mod2_res) > 2 else ''}"
-            )
-
-            # Модуль 3
-            mod3_res = mod3_first(T3)
-            mod3_text = (
-                f"Модуль 3:\n"
-                f"{mod3_res[0]}\n"
-                f"{mod3_res[1]}\n"
-                f"{mod3_res[2] if len(mod3_res) > 2 else ''}"
-            )
-
-            abcb1 = self.abcb1.currentText() if self.abcb1.currentText() else None
-            drugs = []
-            if self.drug_aspirin.isChecked():
-                drugs.append("АСК")
-            if self.drug_clopidogrel.isChecked():
-                drugs.append("клопидогрел")
-            if self.drug_aspirin_clopidogrel.isChecked():
-                drugs.append("АСК+клопидогрел")
-            if self.drug_aspirin_ticagrelor.isChecked():
-                drugs.append("АСК+тикагрелор")
-
-            abcb1_result = mod1_first_ABCB1(abcb1) if abcb1 else "Нет данных"
-
-            aggregation_state = mod1_second(T)[0] if T is not None else "Нет данных"
-            report = (
-                "==============================\n"
-                "        МЕДИЦИНСКИЙ ОТЧЕТ\n"
-                "==============================\n\n"
-                "I. ОБЩИЕ ДАННЫЕ ПАЦИЕНТА\n"
-                "------------------------------\n"
-                f"Пол: {gender.value if gender else ''}\n"
-                f"Возраст: {age if age else ''}\n"
-                f"Вес: {self.weight.text()}\n"
-                f"Рост: {self.height_field.text()}\n"
-                f"Креатинин: {self.creatinine.text()}\n"
-                f"Клиренс креатинина: {self.creatinine_clearance.text()}\n"
-                f"MPV: {self.mpv.text()}\n"
-                f"PLCR: {self.plcr.text()}\n"
-                f"Спонтанная агрегация: {self.spontaneous_aggregation.text()}\n"
-                f"Индуц. агрегация 1 мкМоль АДФ: {self.induced_aggregation_1_ADP.text()}\n"
-                f"Индуц. агрегация 5 мкМоль АДФ: {self.induced_aggregation_5_ADP.text()}\n"
-                f"Индуц. агрегация 15 мкл арахидоновой кислоты: {self.induced_aggregation_15_ARA.text()}\n"
-                "\n"
-                "II. ГЕНЕТИЧЕСКИЕ ДАННЫЕ\n"
-                "------------------------------\n"
-                f"Генотип CYP2C19: {cyp if cyp else ''}\n"
-                f"Генотип ABCB1: {abcb1 if abcb1 else ''}\n"
-                "\n"
-                "III. ФАРМАКОТЕРАПИЯ\n"
-                "------------------------------\n"
-                f"Препараты: {', '.join(drugs)}\n"
-                "\n"
-                "IV. СОСТОЯНИЕ АГРЕГАЦИИ ТРОМБОЦИТОВ\n"
-                "------------------------------\n"
-                f"{aggregation_state}\n"
-                "\n"
-                "V. КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ КЛОПИДОГРЕЛА\n"
-                "------------------------------\n"
-                f"Скорость выведения клопидогрела (ABCB1): {abcb1_result}\n"
-                f"{mod1_text}\n"
-                "\n"
-                "VI. РЕКОМЕНДАЦИИ ПО МОДУЛЮ 2 (АСК)\n"
-                "------------------------------\n"
-                f"{mod2_text}\n"
-                "\n"
-                "VII. РЕКОМЕНДАЦИИ ПО МОДУЛЮ 3 (ТИКАГРЕЛОР)\n"
-                "------------------------------\n"
-                f"{mod3_text}\n"
-                "\n"
-            )
-            # Блок ПРОГНОЗ
+            # Расчет коэффициента прогноза
             try:
-                prognosis_value = calculate_prognosis(
-                    gender.value if gender else None,
-                    age,
-                    float(self.weight.text()) if self.weight.text() else None,
-                    float(self.height_field.text()) if self.height_field.text() else None,
-                    float(self.creatinine.text()) if self.creatinine.text() else None,
-                    float(self.creatinine_clearance.text()) if self.creatinine_clearance.text() else None,
-                    float(self.mpv.text()) if self.mpv.text() else None,
-                    float(self.plcr.text()) if self.plcr.text() else None,
-                    float(self.spontaneous_aggregation.text()) if self.spontaneous_aggregation.text() else None,
-                    float(self.induced_aggregation_1_ADP.text()) if self.induced_aggregation_1_ADP.text() else None,
-                    float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else None,
-                    float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else None,
+                gender_val = 1 if self.gender.currentText() == "Муж" else 2 if self.gender.currentText() == "Жен" else 0
+                prognosis_value = mod1(
+                    gender_val,
+                    float(self.age.text()) if self.age.text() else 0,
+                    float(self.weight.text()) if self.weight.text() else 0,
+                    float(self.height_field.text()) if self.height_field.text() else 0,
+                    float(self.creatinine.text()) if self.creatinine.text() else 0,
+                    0,  # Клиренс креатинина удален
+                    float(self.mpv.text()) if self.mpv.text() else 0,
+                    float(self.plcr.text()) if self.plcr.text() else 0,
+                    float(self.spontaneous_aggregation.text()) if self.spontaneous_aggregation.text() else 0,
+                    float(self.induced_aggregation_1_ADP.text()) if self.induced_aggregation_1_ADP.text() else 0,
+                    float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else 0,
+                    float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else 0
                 )
-                prognosis_result = prognosis_text(prognosis_value)
-                prognosis_block = (
-                    "VIII. ПРОГНОЗ\n"
-                    "------------------------------\n"
-                    f"Коэффициент прогноза: {prognosis_value:.3f}\n"
-                    f"Оценка: {prognosis_result}\n"
-                    "==============================\n"
-                )
+                prognosis_evaluation = mod1_text(prognosis_value)
             except Exception as e:
-                prognosis_block = (
-                    "VIII. ПРОГНОЗ\n"
-                    "------------------------------\n"
-                    f"Ошибка расчета коэффициента прогноза: {e}\n"
-                    "==============================\n"
-                )
+                prognosis_value = "Ошибка расчета"
+                prognosis_evaluation = ("Ошибка", ["Ошибка расчета коэффициента прогноза"])
 
-            report += prognosis_block
+            # Сохраняем данные для DOC экспорта
+            self.current_report_data = {
+                'date': date,
+                'name_or_record': name_or_record,
+                'examination_type': examination_type,
+                'age': age,
+                'drugs': drugs_str,
+                'main_table_rows': [],
+                'cyp_table_rows': [],
+                'abcb1_table_rows': [],
+                'ticagrelor_table_rows': [],
+                'aspirin_table_rows': []
+            }
 
-            # Подготавливаем данные для Excel
+            # Формируем HTML отчет и данные для таблиц
+            html_report = f"""
+            <html>
+            <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .header {{ text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; }}
+                .section {{ margin: 20px 0; }}
+                .section-title {{ font-size: 14px; font-weight: bold; margin-bottom: 10px; }}
+                table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+                th, td {{ border: 1px solid #000; padding: 8px; text-align: center; }}
+                th {{ background-color: #f2f2f2; font-weight: bold; }}
+            </style>
+            </head>
+            <body>
+                <div class="header">РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ</div>
+                
+                <p><strong>Дата обследования:</strong> {date}</p>
+                <p><strong>ФИО / № истории болезни:</strong> {name_or_record}</p>
+                <p><strong>Обследование:</strong> {examination_type}</p>
+                <p><strong>Возраст:</strong> {age}</p>
+                
+                <div class="section">
+                    <div class="section-title">Прием антиагрегантов:</div>
+                    <p><strong>Антиагреганты, которые пациент принимает:</strong> {drugs_str}</p>
+                </div>
+            """
+
+            # Таблица 1: Основные результаты
+            main_table_headers = ["Параметр", "Результат пациента", "Критерий", "Оценка", "Прогноз"]
+            main_table_rows = []
+
+            # Строка 1: Коэффициент прогноза
+            if isinstance(prognosis_value, (int, float)):
+                if prognosis_value <= 1.56:
+                    criterion = "≤ 1.56"
+                    evaluation = "Благоприятная"
+                    prognosis_text = "Неблагоприятных событий в течение года не ожидается"
+                elif 1.561 <= prognosis_value <= 2.087:
+                    criterion = "1.561-2.087"
+                    evaluation = "Неблагоприятная"
+                    prognosis_text = "Возможны обращения за медицинской помощью в течение ближайшего года"
+                else:
+                    criterion = "> 2.08"
+                    evaluation = "Риск повторных сосудистых событий"
+                    prognosis_text = "Высокий риск повторного инфаркта и летальный исход"
+                main_table_rows.append([
+                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
+                    f"{prognosis_value:.3f}",
+                    criterion,
+                    evaluation,
+                    prognosis_text
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
+                    f"{prognosis_value:.3f}",
+                    criterion,
+                    evaluation,
+                    prognosis_text
+                ])
+            else:
+                main_table_rows.append([
+                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
+                    prognosis_value,
+                    "-",
+                    "-",
+                    "-"
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
+                    prognosis_value,
+                    "-",
+                    "-",
+                    "-"
+                ])
+
+            # Строка 2: Индуцированная агрегация 5 мкМоль АДФ
+            if T_adp is not None:
+                if T_adp <= 10:
+                    criterion_adp = "T ≤ 10 %"
+                    evaluation_adp = "Агрегация тромбоцитов значительно подавлена"
+                    prognosis_adp = "Риск геморрагических осложнений"
+                elif 10 < T_adp < 25:
+                    criterion_adp = "10 < T < 25 %"
+                    evaluation_adp = "Агрегация тромбоцитов умеренно подавлена"
+                    prognosis_adp = "Терапия эффективна"
+                else:
+                    criterion_adp = "T ≥ 25 %"
+                    evaluation_adp = "Агрегация тромбоцитов сохранена"
+                    prognosis_adp = "Терапия неэффективна"
+
+                main_table_rows.append([
+                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                    f"{T_adp}%",
+                    criterion_adp,
+                    evaluation_adp,
+                    prognosis_adp
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                    f"{T_adp}%",
+                    criterion_adp,
+                    evaluation_adp,
+                    prognosis_adp
+                ])
+            else:
+                main_table_rows.append([
+                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                    "______",
+                    "-",
+                    "-",
+                    "-"
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                    "______",
+                    "-",
+                    "-",
+                    "-"
+                ])
+
+            # Строка 3: Генотип CYP 2C19
+            if cyp_genotype != "______":
+                if cyp_genotype == "CYP 2c19*1":
+                    evaluation_cyp = "Нормальный метаболизм клопидогрела"
+                    prognosis_cyp = "Эффективность терапии клопидогрелом"
+                elif cyp_genotype in ["CYP 2c19*2", "CYP 2c19*3"]:
+                    evaluation_cyp = "Замедленный метаболизм клопидогрела"
+                    prognosis_cyp = "Возможна резистентность к клопидогрелу"
+                elif cyp_genotype == "CYP 2c19*17":
+                    evaluation_cyp = "Ускоренный метаболизм клопидogрела"
+                    prognosis_cyp = "Возможно угнетение агрегации, риск геморрагических осложнений"
+                else:
+                    evaluation_cyp = "Неизвестный генотип"
+                    prognosis_cyp = "Требуется дополнительное исследование"
+
+                main_table_rows.append([
+                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
+                    cyp_genotype,
+                    cyp_genotype,
+                    evaluation_cyp,
+                    prognosis_cyp
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
+                    cyp_genotype,
+                    cyp_genotype,
+                    evaluation_cyp,
+                    prognosis_cyp
+                ])
+            else:
+                main_table_rows.append([
+                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
+                    "______",
+                    "-",
+                    "-",
+                    "-"
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
+                    "______",
+                    "-",
+                    "-",
+                    "-"
+                ])
+
+            # Строка 4: Генотип ABCB1
+            if abcb1_genotype != "______":
+                if abcb1_genotype == "TT":
+                    evaluation_abcb1 = "Выведение клопидогрела ускорено"
+                    prognosis_abcb1 = "Вероятна резистентность к клопидогрелу"
+                elif abcb1_genotype == "TC":
+                    evaluation_abcb1 = "Незначительное ускорение выведения клопидогрела"
+                    prognosis_abcb1 = "Клинически незначимое влияние эффективность фармакотерапии"
+                elif abcb1_genotype == "CC":
+                    evaluation_abcb1 = "Нормальная скорость выведения клопидогрела"
+                    prognosis_abcb1 = "Влияния на эффективность терапии клопидогрелом нет"
+                else:
+                    evaluation_abcb1 = "Неизвестный генотип"
+                    prognosis_abcb1 = "Требуется дополнительное исследование"
+
+                main_table_rows.append([
+                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
+                    abcb1_genotype,
+                    abcb1_genotype,
+                    evaluation_abcb1,
+                    prognosis_abcb1
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
+                    abcb1_genotype,
+                    abcb1_genotype,
+                    evaluation_abcb1,
+                    prognosis_abcb1
+                ])
+            else:
+                main_table_rows.append([
+                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
+                    "______",
+                    "-",
+                    "-",
+                    "-"
+                ])
+                
+                self.current_report_data['main_table_rows'].append([
+                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
+                    "______",
+                    "-",
+                    "-",
+                    "-"
+                ])
+
+            # Добавляем основную таблицу в отчет
+            html_report += self.format_html_table(main_table_headers, main_table_rows)
+
+            # Таблица 2: Коррекция терапии клопидогрелом (CYP2C19)
+            html_report += """
+            <div class="section">
+                <div class="section-title">КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ ГЕНОТИПА CYP 2C19</div>
+            """
+
+            cyp_table_headers = [
+                "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                "Критерий",
+                "Состояние агрегации",
+                "Генотип пациента",
+                "Оценка метаболизма",
+                "Рекомендации"
+            ]
+            
+            cyp_table_rows = []
+            if T_adp is not None and cyp_genotype != "______":
+                # Правильное определение критерия на основе значения T_adp
+                if T_adp <= 10:
+                    criterion = "T ≤ 10 %"
+                    state = "Агрегация тромбоцитов значительно подавлена"
+                elif 10 < T_adp < 25:
+                    criterion = "10 < T < 25 %"
+                    state = "Агрегация тромбоцитов умеренно подавлена"
+                else:
+                    criterion = "T ≥ 25 %"
+                    state = "Агрегация тромбоцитов сохранена"
+                
+                # Получаем рекомендации из модуля 2
+                mod2_result = mod2(T_adp, cyp_genotype)
+                
+                cyp_table_rows.append([
+                    f"{T_adp}%",
+                    criterion,
+                    state,
+                    cyp_genotype,
+                    mod2_result[1] if len(mod2_result) > 1 else "-",
+                    mod2_result[2] if len(mod2_result) > 2 else "-"
+                ])
+                self.current_report_data['cyp_table_rows'].append([
+                    f"{T_adp}%",
+                    criterion,
+                    state,
+                    cyp_genotype,
+                    mod2_result[1] if len(mod2_result) > 1 else "-",
+                    mod2_result[2] if len(mod2_result) > 2 else "-"
+                ])
+            else:
+                cyp_table_rows.append(["______", "-", "-", "-", "-", "-"])
+                self.current_report_data['cyp_table_rows'].append(["______", "-", "-", "-", "-", "-"])
+
+            html_report += self.format_html_table(cyp_table_headers, cyp_table_rows)
+            html_report += "</div>"
+
+            # Таблица 3: Коррекция терапии клопидогрелом (ABCB1)
+            html_report += """
+            <div class="section">
+                <div class="section-title">КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ ТРАНСПОРТНОЙ СИСТЕМЫ Р-ГЛИКОПРОТЕИНА</div>
+            """
+
+            abcb1_table_headers = [
+                "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                "Критерий",
+                "Состояние агрегации",
+                "Генотип пациента ABCB1",
+                "Оценка транспорта",
+                "Рекомендации"
+            ]
+            
+            abcb1_table_rows = []
+            if T_adp is not None and abcb1_genotype != "______":
+                # Правильное определение критерия на основе значения T_adp
+                if T_adp <= 10:
+                    criterion = "T ≤ 10 %"
+                    state = "Агрегация тромбоцитов значительно подавлена"
+                elif 10 < T_adp < 25:
+                    criterion = "10 < T < 25 %"
+                    state = "Агрегация тромбоцитов умеренно подавлена"
+                else:
+                    criterion = "T ≥ 25 %"
+                    state = "Агрегация тромбоцитов сохранена"
+                
+                # Получаем рекомендации из модуля 3
+                mod3_result = mod3(T_adp, abcb1_genotype)
+                
+                abcb1_table_rows.append([
+                    f"{T_adp}%",
+                    criterion,
+                    state,
+                    abcb1_genotype,
+                    mod3_result[1] if len(mod3_result) > 1 else "-",
+                    mod3_result[2] if len(mod3_result) > 2 else "-"
+                ])
+                self.current_report_data['abcb1_table_rows'].append([
+                    f"{T_adp}%",
+                    criterion,
+                    state,
+                    abcb1_genotype,
+                    mod3_result[1] if len(mod3_result) > 1 else "-",
+                    mod3_result[2] if len(mod3_result) > 2 else "-"
+                ])
+            else:
+                abcb1_table_rows.append(["______", "-", "-", "-", "-", "-"])
+                self.current_report_data['abcb1_table_rows'].append(["______", "-", "-", "-", "-", "-"])
+
+            html_report += self.format_html_table(abcb1_table_headers, abcb1_table_rows)
+            html_report += "</div>"
+
+            # Таблица 4: Коррекция терапии тикагрелором
+            html_report += """
+            <div class="section">
+                <div class="section-title">КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ ТИКАГРЕлОРОМ</div>
+            """
+
+            ticagrelor_table_headers = [
+                "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                "Критерий",
+                "Состояние агрегации",
+                "Рекомендации"
+            ]
+            
+            ticagrelor_table_rows = []
+            if T_adp is not None:
+                # Правильное определение критерия на основе значения T_adp
+                if T_adp <= 10:
+                    criterion = "T ≤ 10 %"
+                    state = "Агрегация тромбоцитов значительно подавлена"
+                elif 10 < T_adp < 25:
+                    criterion = "10 < T < 25 %"
+                    state = "Агрегация тромбоцитов умеренно подавлена"
+                else:
+                    criterion = "T ≥ 25 %"
+                    state = "Агрегация тромбоцитов сохранена"
+                
+                # Получаем рекомендации из модуля 4
+                mod4_result = mod4(T_adp)
+                
+                ticagrelor_table_rows.append([
+                    f"{T_adp}%",
+                    criterion,
+                    state,
+                    mod4_result[1] if len(mod4_result) > 1 else "-"
+                ])
+                self.current_report_data['ticagrelor_table_rows'].append([
+                    f"{T_adp}%",
+                    criterion,
+                    state,
+                    mod4_result[1] if len(mod4_result) > 1 else "-"
+                ])
+            else:
+                ticagrelor_table_rows.append(["______", "-", "-", "-"])
+                self.current_report_data['ticagrelor_table_rows'].append(["______", "-", "-", "-"])
+
+            html_report += self.format_html_table(ticagrelor_table_headers, ticagrelor_table_rows)
+            html_report += "</div>"
+
+            # Таблица 5: Коррекция терапии ацетилсалициловой кислотой
+            html_report += """
+            <div class="section">
+                <div class="section-title">КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ АЦЕТИЛСАЛИЦИЛОВОЙ КИСЛОТОЙ</div>
+            """
+
+            aspirin_table_headers = [
+                "Индуцированная агрегация 15 мкл арахидоновой кислоты, % Т-кривая",
+                "Критерий",
+                "Состояние агрегации",
+                "Рекомендации"
+            ]
+            
+            aspirin_table_rows = []
+            if T_ara is not None:
+                # Правильное определение критерия на основе значения T_ara
+                if T_ara <= 2:
+                    criterion = "Т ≤ 2 %"
+                    state = "Агрегация тромбоцитов значительно подавлена"
+                elif 2 < T_ara < 8:
+                    criterion = "2 < Т < 8 %"
+                    state = "Агрегация тромбоцитов умеренно подавлена"
+                else:
+                    criterion = "Т ≥ 8 %"
+                    state = "Агрегация тромбоцитов сохранена"
+                
+                # Получаем рекомендации из модуля 5
+                mod5_result = mod5(T_ara)
+                
+                aspirin_table_rows.append([
+                    f"{T_ara}%",
+                    criterion,
+                    state,
+                    mod5_result[1] if len(mod5_result) > 1 else "-"
+                ])
+                self.current_report_data['aspirin_table_rows'].append([
+                    f"{T_ara}%",
+                    criterion,
+                    state,
+                    mod5_result[1] if len(mod5_result) > 1 else "-"
+                ])
+            else:
+                aspirin_table_rows.append(["______", "-", "-", "-"])
+                self.current_report_data['aspirin_table_rows'].append(["______", "-", "-", "-"])
+
+            html_report += self.format_html_table(aspirin_table_headers, aspirin_table_rows)
+            html_report += "</div>"
+
+            # Закрываем HTML
+            html_report += """
+            </body>
+            </html>
+            """
+
+            # Сохраняем текущий отчет
+            self.current_report_html = html_report
+
+            # Сохраняем данные в Excel
             data_row = [
-                gender.value if gender else '',
-                age if age else '',
+                date,
+                name_or_record,
+                examination_type,
+                self.gender.currentText(),
+                self.age.text(),
                 self.weight.text(),
                 self.height_field.text(),
                 self.creatinine.text(),
-                self.creatinine_clearance.text(),
                 self.mpv.text(),
                 self.plcr.text(),
                 self.spontaneous_aggregation.text(),
                 self.induced_aggregation_1_ADP.text(),
                 self.induced_aggregation_5_ADP.text(),
                 self.induced_aggregation_15_ARA.text(),
-                cyp if cyp else '',
-                abcb1 if abcb1 else '',
-                ', '.join(drugs),
-                aggregation_state,
-                abcb1_result,
-                f"{mod1_score}: {'; '.join(mod1_recommendations)}",
-                "; ".join([str(x) for x in mod2_res if x]),
-                "; ".join([str(x) for x in mod3_res if x]),
-                prognosis_value if 'prognosis_value' in locals() else '',
-                prognosis_result if 'prognosis_result' in locals() else ''
+                cyp_genotype,
+                abcb1_genotype,
+                drugs_str,
+                state if T_adp is not None else "",
+                mod3_result[1] if T_adp is not None and abcb1_genotype != "______" and len(mod3_result) > 1 else "",
+                prognosis_value if isinstance(prognosis_value, (int, float)) else "",
+                mod2_result[1] if T_adp is not None and cyp_genotype != "______" and len(mod2_result) > 1 else "",
+                mod3_result[1] if T_adp is not None and abcb1_genotype != "______" and len(mod3_result) > 1 else "",
+                prognosis_value if isinstance(prognosis_value, (int, float)) else "",
+                prognosis_evaluation[0] if isinstance(prognosis_evaluation, tuple) else ""
             ]
-
-            self.report_window = ReportWindow(report, data_row, self.excel_filename)
-            self.report_window.show()
             
+            append_patient_data(self.excel_filename, data_row)
+
+            # Показываем отчет в диалоговом окне
+            report_dialog = QDialog(self)
+            report_dialog.setWindowTitle("Медицинский отчет")
+            report_dialog.resize(900, 700)
+
+            layout = QVBoxLayout(report_dialog)
+            text_edit = QTextEdit()
+            text_edit.setHtml(html_report)
+            text_edit.setReadOnly(True)
+            layout.addWidget(text_edit)
+
+            close_button = QPushButton("Закрыть")
+            close_button.clicked.connect(report_dialog.accept)
+            layout.addWidget(close_button)
+
+            report_dialog.exec()
+
         except Exception as e:
             QMessageBox.critical(self, "Ошибка генерации отчета", 
-                               f"Произошла ошибка при формировании отчета:\n{str(e)}")
+                            f"Произошла ошибка при формировании отчета:\n{str(e)}")
             print(f"Ошибка в generate_report: {e}")
             import traceback
             traceback.print_exc()
-
-    def choose_excel_file(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Выберите файл Excel", self.excel_filename, "Excel Files (*.xlsx)")
-        if filename:
-            self.excel_filename = filename
-
-    def save_to_excel(self):
-        if not self.validate_all_fields():
-            return
-        # Просто сохраняем в self.excel_filename, не спрашивая пользователя!
-        # Соберите все данные, как в generate_report
-        gender = self.gender.currentText()
-        age = self.age.text()
-        weight = self.weight.text()
-        height = self.height_field.text()
-        creatinine = self.creatinine.text()
-        creatinine_clearance = self.creatinine_clearance.text()
-        mpv = self.mpv.text()
-        plcr = self.plcr.text()
-        spontaneous_aggregation = self.spontaneous_aggregation.text()
-        induced_aggregation_1_ADP = self.induced_aggregation_1_ADP.text()
-        induced_aggregation_5_ADP = self.induced_aggregation_5_ADP.text()
-        induced_aggregation_15_ARA = self.induced_aggregation_15_ARA.text()
-        cyp = self.cyp2c19.currentText()
-        abcb1 = self.abcb1.currentText()
-        drugs = []
-        if self.drug_aspirin.isChecked():
-            drugs.append("АСК")
-        if self.drug_clopidogrel.isChecked():
-            drugs.append("клопидогрел")
-        if self.drug_aspirin_clopidogrel.isChecked():
-            drugs.append("АСК+клопидогрел")
-        if self.drug_aspirin_ticagrelor.isChecked():
-            drugs.append("АСК+тикагрелор")
-        drugs_str = ", ".join(drugs)
-
-        # Получить все расчеты и рекомендации (как в generate_report)
-        T = float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else None
-        aggregation_state = mod1_second(T)[0] if T is not None else "Нет данных"
-        abcb1_result = mod1_first_ABCB1(abcb1) if abcb1 else "Нет данных"
-        mod1_score, mod1_recommendations = mod1_first(T, cyp)
-        mod1_text = f"{mod1_score}: {'; '.join(mod1_recommendations)}"
-        T2 = float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else None
-        mod2_res = mod2_first(T2)
-        mod2_text = "; ".join([str(x) for x in mod2_res if x])
-        T3 = float(self.spontaneous_aggregation.text()) if self.spontaneous_aggregation.text() else None
-        mod3_res = mod3_first(T3)
-        mod3_text = "; ".join([str(x) for x in mod3_res if x])
-
-        try:
-            prognosis_value = calculate_prognosis(
-                gender,
-                int(age) if age else None,
-                float(weight) if weight else None,
-                float(height) if height else None,
-                float(creatinine) if creatinine else None,
-                float(creatinine_clearance) if creatinine_clearance else None,
-                float(mpv) if mpv else None,
-                float(plcr) if plcr else None,
-                float(spontaneous_aggregation) if spontaneous_aggregation else None,
-                float(induced_aggregation_1_ADP) if induced_aggregation_1_ADP else None,
-                float(induced_aggregation_5_ADP) if induced_aggregation_5_ADP else None,
-                float(induced_aggregation_15_ARA) if induced_aggregation_15_ARA else None,
-            )
-            prognosis_result = prognosis_text(prognosis_value)
-        except Exception as e:
-            prognosis_value = ""
-            prognosis_result = f"Ошибка: {e}"
-
-        data_row = [
-            gender, age, weight, height, creatinine, creatinine_clearance, mpv, plcr,
-            spontaneous_aggregation, induced_aggregation_1_ADP, induced_aggregation_5_ADP,
-            induced_aggregation_15_ARA, cyp, abcb1, drugs_str, aggregation_state,
-            abcb1_result, mod1_text, mod2_text, mod3_text, prognosis_value, prognosis_result
-        ]
-        append_patient_data(self.excel_filename, data_row)
-        QMessageBox.information(self, "Сохранение", f"Данные успешно сохранены в файл:\n{self.excel_filename}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
