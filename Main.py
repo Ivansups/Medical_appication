@@ -1106,8 +1106,8 @@ class MainWindow(QWidget):
                     criterion_adp = "T ≤ 10 %"
                     evaluation_adp = "Агрегация тромбоцитов значительно подавлена"
                     prognosis_adp = "Риск геморрагических осложнений"
-                elif 10 < T_adp < 25:
-                    criterion_adp = "10 < T < 25 %"
+                elif 10 < T_adp and T_adp < 25:
+                    criterion_adp = "10 - 25 %"
                     evaluation_adp = "Агрегация тромбоцитов умеренно подавлена"
                     prognosis_adp = "Терапия эффективна"
                 else:
@@ -1266,7 +1266,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -1320,7 +1320,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -1372,7 +1372,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -1420,7 +1420,7 @@ class MainWindow(QWidget):
                     criterion = "Т ≤ 2 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 2 < T_ara < 8:
-                    criterion = "2 < Т < 8 %"
+                    criterion = "2 - 8 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "Т ≥ 8 %"
@@ -1456,36 +1456,6 @@ class MainWindow(QWidget):
 
             # Сохраняем текущий отчет
             self.current_report_html = html_report
-
-            # Сохраняем данные в Excel
-            data_row = [
-                date,
-                name_or_record,
-                examination_type,
-                self.gender.currentText(),
-                self.age.text(),
-                self.weight.text(),
-                self.height_field.text(),
-                self.creatinine.text(),
-                self.mpv.text(),
-                self.plcr.text(),
-                self.spontaneous_aggregation.text(),
-                self.induced_aggregation_1_ADP.text(),
-                self.induced_aggregation_5_ADP.text(),
-                self.induced_aggregation_15_ARA.text(),
-                cyp_genotype,
-                abcb1_genotype,
-                drugs_str,
-                state if T_adp is not None else "",
-                mod3_result[1] if T_adp is not None and abcb1_genotype != "______" and len(mod3_result) > 1 else "",
-                prognosis_value if isinstance(prognosis_value, (int, float)) else "",
-                mod2_result[1] if T_adp is not None and cyp_genotype != "______" and len(mod2_result) > 1 else "",
-                mod3_result[1] if T_adp is not None and abcb1_genotype != "______" and len(mod3_result) > 1 else "",
-                prognosis_value if isinstance(prognosis_value, (int, float)) else "",
-                prognosis_evaluation[0] if isinstance(prognosis_evaluation, tuple) else ""
-            ]
-            
-            append_patient_data(self.excel_filename, data_row)
 
             # Показываем отчет в диалоговом окне
             report_dialog = QDialog(self)
