@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtGui import QTextDocument
-from classes.Patient import PatientData, Gender, CYP2C19
+from classes.Patient import PatientData, Gender, CYP2C19, ABCB1
 from logic.Mod1 import mod1, mod1_text
 from logic.Mod2 import mod2
 from logic.Mod3 import mod3
