@@ -1,9 +1,9 @@
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../logic')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from logic.Main import MainWindow
+from classes.MainWindow import MainWindow
 
 import unittest
 from PySide6.QtWidgets import QApplication
