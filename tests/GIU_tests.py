@@ -55,5 +55,6 @@ class TestMainWindow(unittest.TestCase):
         self.window.weight.setText('')
         self.assertNotIn("background-color: #ffcccc", self.window.weight.styleSheet())
 
+
 if __name__ == '__main__':
     unittest.main()
