@@ -323,9 +323,8 @@ class MainWindow(QWidget):
                 border: none;
                 background-color: transparent;
             }
-        """)
+                """)
 
-        # Подключение валидации к полям
         self.age.textChanged.connect(self.validate_age)
         self.weight.textChanged.connect(self.validate_weight)
         self.height_field.textChanged.connect(self.validate_height)
@@ -771,6 +770,8 @@ class MainWindow(QWidget):
                 .header {{ text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; }}
                 .section {{ margin: 20px 0; }}
                 .section-title {{ font-size: 14px; font-weight: bold; margin-bottom: 10px; }}
+                .subsection {{ margin: 15px 0; }}
+                .subsection-title {{ font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #2c3e50; }}
                 table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
                 th, td {{ border: 1px solid #000; padding: 8px; text-align: center; }}
                 th {{ background-color: #f2f2f2; font-weight: bold; }}
@@ -984,6 +985,15 @@ class MainWindow(QWidget):
             # Добавляем основную таблицу в отчет
             html_report += self.format_html_table(main_table_headers, main_table_rows)
 
+            # Добавляем расчетные показатели функции почек
+            html_report += f"""
+            <div class="section">
+                <div class="section-title">РАСЧЕТНЫЕ ПОКАЗАТЕЛИ ФУНКЦИИ ПОЧЕК</div>
+                <p><strong>Клиренс креатинина (КК):</strong> {ccr} мл/мин</p>
+                <p><strong>Скорость клубочковой фильтрации (СКФ):</strong> {gfr} мл/мин</p>
+            </div>
+            """
+
             # Таблица 2: Коррекция терапии клопидогрелом (CYP2C19)
             html_report += """
             <div class="section">
@@ -1184,6 +1194,55 @@ class MainWindow(QWidget):
                 self.current_report_data['aspirin_table_rows'].append(["______", "-", "-", "-"])
 
             html_report += self.format_html_table(aspirin_table_headers, aspirin_table_rows)
+            html_report += "</div>"
+
+            # Раздел: Прогноз непереносимости фармакотерапии
+            html_report += """
+            <div class="section">
+                <div class="section-title">ПРОГНОЗ НЕПЕРЕНОСИМОСТИ ФАРМАКОТЕРАПИИ</div>
+            """
+
+            # 1. Оценка риска желудочно-кишечного кровотечения
+            html_report += """
+            <div class="subsection">
+                <div class="subsection-title">1. Оценка риска желудочно-кишечного кровотечения</div>
+            """
+
+            gi_bleeding_headers = ["Параметр", "Значение", "Баллы"]
+            gi_bleeding_rows = [
+                ["Язвенная болезнь в анамнезе", self.ulcer_history.currentText(), "1" if self.ulcer_history.currentText() == "да" else "0"],
+                ["Желудочно-кишечное кровотечение в анамнезе", self.gi_bleeding_history.currentText(), "1" if self.gi_bleeding_history.currentText() == "да" else "0"],
+                ["Использование НПВП", self.nsaid_use.currentText(), "1" if self.nsaid_use.currentText() == "да" else "0"],
+                ["Прием ГКС", self.steroid_use.currentText(), "1" if self.steroid_use.currentText() == "да" else "0"],
+                ["Возраст ≥ 65 лет", self.age_65.currentText(), "1" if self.age_65.currentText() == "да" else "0"],
+                ["Диспепсия", self.dyspepsia.currentText(), "1" if self.dyspepsia.currentText() == "да" else "0"],
+                ["Желудочно-пищеводный рефлюкс", self.gerd.currentText(), "1" if self.gerd.currentText() == "да" else "0"],
+                ["Инфицирование H. pylori", self.h_pylori.currentText(), "1" if self.h_pylori.currentText() == "да" else "0"],
+                ["Хроническое употребление алкоголя", self.alcohol_use.currentText(), "1" if self.alcohol_use.currentText() == "да" else "0"],
+                ["Всего - баллов", "", str(gi_bleeding_score)]
+            ]
+
+            html_report += self.format_html_table(gi_bleeding_headers, gi_bleeding_rows)
+            html_report += "</div>"
+
+            # 2. Отмена препарата при уровне тромбоцитов
+            html_report += """
+            <div class="subsection">
+                <div class="subsection-title">2. Отмена препарата при уровне тромбоцитов</div>
+            """
+
+            drug_cancellation_headers = ["Параметр", "Значение"]
+            drug_cancellation_rows = [
+                ["Количество тромбоцитов", f"{platelet_count}×10⁹/л"],
+                ["Текущая терапия", selected_drug],
+                ["Рекомендация по отмене", drug_cancellation],
+                ["АСК - при уровне тромбоцитов", "≤10×10⁹/л"],
+                ["Клопидогрел - при уровне тромбоцитов", "≤30×10⁹/л"],
+                ["Тикагрелор - при уровне тромбоцитов", "≤50×10⁹/л"]
+            ]
+
+            html_report += self.format_html_table(drug_cancellation_headers, drug_cancellation_rows)
+            html_report += "</div>"
             html_report += "</div>"
 
             # Закрываем HTML
