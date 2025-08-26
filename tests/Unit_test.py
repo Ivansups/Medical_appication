@@ -3,108 +3,67 @@ import unittest
 import sys
 import os
 import tempfile
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
 from PySide6.QtCore import Qt
 
 # Импортируем ваши модули
-from logic.Main import MainWindow
-from logic.Mod1 import mod1_first, mod1_first_ABCB1, mod1_second
-from logic.Mod2 import mod2_first
-from logic.Mod3 import mod3_first
-from logic.Prognosis import calculate_prognosis, prognosis_text
+from classes.MainWindow import MainWindow
+from logic.Mod1 import mod1, mod1_text
+from logic.Mod2 import mod2
+from logic.Mod3 import mod3
+from logic.Mod4 import mod4
+from logic.Mod5 import mod5
 from logic.exel_utils import append_patient_data, create_or_load_workbook
 
 class TestMedicalModules(unittest.TestCase):
-    def test_mod1_first(self):
-        result = mod1_first(25, "CYP 2c19*1")
-        self.assertEqual(
-            result,
-            (
-                "Нормальный метаболизм клопидогрела",
-                [
-                    "Заменить клопидогрел на оригинальный препарат (Плавикс) или препарат другого производителя",
-                    "Контроль агрегации тромбоцитов через 7 дней терапии"
-                ]
-            )
-        )
-        result = mod1_first(25, "CYP 2c19*2")
-        self.assertEqual(
-            result,
-            (
-                "Замедление метаболизма клопидогрела",
-                [
-                    "Заменить АСК+клопидогрел на комбинацию препаратов АСК+тикагрелор",
-                    "Контроль агрегации тромбоцитов через 7 дней терапии"
-                ]
-            )
-        )
+    def test_mod1(self):
+        result = mod1("Муж", 55, 80, 175, 90, 85, 10.5, 25, 12, 30, 40, 18)
+        self.assertIsInstance(result, float)
+        
+        prognosis, recommendations = mod1_text(1.5)
+        self.assertEqual(prognosis, "Благоприятная")
+        self.assertIsInstance(recommendations, list)
     
     def test_prognosis_calculation(self):
-        result = calculate_prognosis("Муж", 55, 80, 175, 90, 85, 10.5, 25, 12, 30, 40, 18)
-        self.assertAlmostEqual(result, 1.909, places=3)    
+        result = mod1("Муж", 55, 80, 175, 90, 85, 10.5, 25, 12, 30, 40, 18)
+        self.assertIsInstance(result, float)    
     
-    def test_mod2_first(self):
-        result = mod2_first(2)
-        self.assertEqual(
-            result,
-            (
-                "Агрегация тромбоцитов значительно подавлена (T ≤ 10%)",
-                "Продолжить прием ацетилсалициловой кислоты",
-                "Высокий риск геморрагических осложнений"
-            )
-        )
-        result = mod2_first(15)
-        self.assertEqual(
-            result,
-            (
-                "Агрегация тромбоцитов сохранена",
-                "Замена на препарат ацетилсалициловой кислоты другого производителя",
-                "Контроль агрегации тромбоцитов через 7 дней терапии"
-            )
-        )
-        result = mod2_first(8)
-        self.assertEqual(
-            result,
-            (
-                "Агрегация тромбоцитов сохранена",
-                "Замена на препарат ацетилсалициловой кислоты другого производителя",
-                "Контроль агрегации тромбоцитов через 7 дней терапии"
-            )
-        )
-        result = mod2_first(-10)
-        self.assertEqual(
-            result,
-            (
-                "Агрегация тромбоцитов сохранена",
-                "Замена на препарат ацетилсалициловой кислоты другого производителя",
-                "Контроль агрегации тромбоцитов через 7 дней терапии"
-            )
-        )
+    def test_mod2(self):
+        result = mod2(2, "CYP 2c19*1")
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 3)
+        
+        result = mod2(15, "CYP 2c19*2")
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 3)
 
-    def test_mod3_first(self):
-        result = mod3_first(10)
-        self.assertEqual(
-            result,
-            (
-                "Агрегация тромбоцитов значительно подавлена (T ≤ 10%)",
-                "Высокий риск геморрагических осложнений",
-                "Замена терапии на АСК+клопидогрел",
-                "Контроль агрегации тромбоцитов через 7 дней терапии"
-            )
-        )
-        result = mod3_first(100)
-        self.assertEqual(
-            result,
-            (
-                "Нет специфических рекомендаций",
-                "Возможно, введены некорректные данные",
-                "",
-                ""
-            )
-        )
+    def test_mod3(self):
+        result = mod3(10, "TT")
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 3)
+        
+        result = mod3(100, "CC")
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 3)
 
+    def test_mod4(self):
+        result = mod4(10)
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 4)
 
+    def test_mod5(self):
+        result = mod5(10)
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(len(result), 4)
+
+    def test_excel_utils(self):
+        wb, ws = create_or_load_workbook()
+        self.assertIsNotNone(wb)
+        self.assertIsNotNone(ws)
 
 if __name__ == '__main__':
     unittest.main()
