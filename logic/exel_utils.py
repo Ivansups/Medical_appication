@@ -20,20 +20,25 @@ def create_or_load_workbook(filename=DEFAULT_FILENAME):
         ])
     return wb, ws
 
-def append_patient_data(
-    filename, data_row
-):
-    wb, ws = create_or_load_workbook(filename)
-    ws.append(data_row)
-    for col in ws.columns:
+def autofit_columns(ws):
+    for column_cells in ws.columns:
         max_length = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
+        column = column_cells[0].column  # номер колонки (1, 2, 3...)
+        for cell in column_cells:
             try:
-                if cell.value:
-                    max_length = max(max_length, len(str(cell.value)))
-            except Exception:
+                cell_length = len(str(cell.value))
+                if cell_length > max_length:
+                    max_length = cell_length
+            except:
                 pass
         adjusted_width = max_length + 2  # небольшой запас
-        ws.column_dimensions[col_letter].width = adjusted_width
-    wb.save(filename)
+        ws.column_dimensions[get_column_letter(column)].width = adjusted_width
+
+def append_patient_data(filename, data_row):
+    wb, ws = create_or_load_workbook(filename)
+    if ws is not None:
+        ws.append(data_row)
+        autofit_columns(ws)
+        wb.save(filename)
+    else:
+        raise ValueError("Не удалось создать или получить рабочий лист Excel")
