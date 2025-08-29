@@ -49,6 +49,20 @@ class MainWindow(QWidget):
         basic_group = QGroupBox("Основные данные пациента")
         basic_layout = QFormLayout()
         
+        # Поля ввода
+        self.date = QLineEdit()
+        self.date.setPlaceholderText("Введите дату (дд.мм.гггг)")
+        self.date.setText(QDate.currentDate().toString("dd.MM.yyyy"))
+        basic_layout.addRow("Дата обследования:", self.date)
+
+        self.name_or_record = QLineEdit()
+        self.name_or_record.setPlaceholderText("Введите ФИО или номер истории болезни")
+        basic_layout.addRow("ФИО / № истории болезни:", self.name_or_record)
+
+        self.examination_type = QComboBox()
+        self.examination_type.addItems(["Стационар", "Амбулаторно"])
+        basic_layout.addRow("Обследование:", self.examination_type)
+        
         # Поля выбора
         self.gender = QComboBox()
         self.gender.addItem("")  # Для необязательного выбора
@@ -107,6 +121,11 @@ class MainWindow(QWidget):
         platelet_group = QGroupBox("Тромбоцитарные показатели")
         platelet_layout = QFormLayout()
         
+        # Добавляем поле для количества тромбоцитов
+        self.platelet_count = QLineEdit()
+        self.platelet_count.setPlaceholderText("Введите количество тромбоцитов (×10⁹/л)")
+        platelet_layout.addRow("Количество тромбоцитов, ×10⁹/л:", self.platelet_count)
+        
         self.mpv = QLineEdit()
         self.mpv.setPlaceholderText("Введите MPV (фл)")
         platelet_layout.addRow("Величина тромбоцитов MPV:", self.mpv)
@@ -141,7 +160,51 @@ class MainWindow(QWidget):
         aggregation_group.setLayout(aggregation_layout)
         layout.addWidget(aggregation_group)
 
-        # === ГРУППА 6: ПРЕПАРАТЫ ===
+        # === ГРУППА 6: ОЦЕНКА РИСКА ЖЕЛУДОЧНО-КИШЕЧНОГО КРОВОТЕЧЕНИЯ ===
+        gi_bleeding_group = QGroupBox("Оценка риска желудочно-кишечного кровотечения")
+        gi_bleeding_layout = QFormLayout()
+        
+        # Поля для оценки риска ЖКК
+        self.ulcer_history = QComboBox()
+        self.ulcer_history.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Язвенная болезнь в анамнезе:", self.ulcer_history)
+
+        self.gi_bleeding_history = QComboBox()
+        self.gi_bleeding_history.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Желудочно-кишечное кровотечение в анамнезе:", self.gi_bleeding_history)
+
+        self.nsaid_use = QComboBox()
+        self.nsaid_use.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Использование НПВП:", self.nsaid_use)
+
+        self.steroid_use = QComboBox()
+        self.steroid_use.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Прием ГКС:", self.steroid_use)
+
+        self.age_65 = QComboBox()
+        self.age_65.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Возраст ≥ 65 лет:", self.age_65)
+
+        self.dyspepsia = QComboBox()
+        self.dyspepsia.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Диспепсия:", self.dyspepsia)
+
+        self.gerd = QComboBox()
+        self.gerd.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Желудочно-пищеводный рефлюкс:", self.gerd)
+
+        self.h_pylori = QComboBox()
+        self.h_pylori.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Инфицирование H. pylori:", self.h_pylori)
+
+        self.alcohol_use = QComboBox()
+        self.alcohol_use.addItems(["нет", "да"])
+        gi_bleeding_layout.addRow("Хроническое употребление алкоголя:", self.alcohol_use)
+        
+        gi_bleeding_group.setLayout(gi_bleeding_layout)
+        layout.addWidget(gi_bleeding_group)
+
+        # === ГРУППА 7: ПРЕПАРАТЫ ===
         drugs_group = QGroupBox("Препараты")
         drugs_layout = QVBoxLayout()
         
@@ -151,23 +214,20 @@ class MainWindow(QWidget):
         # Создаем группу радиокнопок для выбора только одного препарата
         self.drugs_button_group = QButtonGroup(self)
         
-        self.drug_none = QRadioButton("Нет препаратов")
         self.drug_aspirin = QRadioButton("АСК")
         self.drug_clopidogrel = QRadioButton("Клопидогрел")
         self.drug_aspirin_clopidogrel = QRadioButton("АСК+клопидогрел")
         self.drug_aspirin_ticagrelor = QRadioButton("АСК+тикагрелор")
         
         # Добавляем радиокнопки в группу
-        self.drugs_button_group.addButton(self.drug_none, 0)
         self.drugs_button_group.addButton(self.drug_aspirin, 1)
         self.drugs_button_group.addButton(self.drug_clopidogrel, 2)
         self.drugs_button_group.addButton(self.drug_aspirin_clopidogrel, 3)
         self.drugs_button_group.addButton(self.drug_aspirin_ticagrelor, 4)
         
-        # Устанавливаем "Нет препаратов" по умолчано
-        self.drug_none.setChecked(True)
+        # Устанавливаем "АСК" по умолчанию
+        self.drug_aspirin.setChecked(True)
         
-        drugs_layout.addWidget(self.drug_none)
         drugs_layout.addWidget(self.drug_aspirin)
         drugs_layout.addWidget(self.drug_clopidogrel)
         drugs_layout.addWidget(self.drug_aspirin_clopidogrel)
@@ -263,9 +323,8 @@ class MainWindow(QWidget):
                 border: none;
                 background-color: transparent;
             }
-        """)
+                """)
 
-        # Подключение валидации к полям
         self.age.textChanged.connect(self.validate_age)
         self.weight.textChanged.connect(self.validate_weight)
         self.height_field.textChanged.connect(self.validate_height)
@@ -277,6 +336,7 @@ class MainWindow(QWidget):
         self.induced_aggregation_1_ADP.textChanged.connect(self.validate_induced_aggregation_1_ADP)
         self.induced_aggregation_5_ADP.textChanged.connect(self.validate_induced_aggregation_5_ADP)
         self.induced_aggregation_15_ARA.textChanged.connect(self.validate_induced_aggregation_15_ARA)
+        self.platelet_count.textChanged.connect(self.validate_platelet_count)
 
     # Методы валидации
     def validate_age(self):
@@ -458,6 +518,23 @@ class MainWindow(QWidget):
                 self.induced_aggregation_15_ARA.setStyleSheet("")
                 return True
 
+    def validate_platelet_count(self):
+        try:
+            platelets = float(self.platelet_count.text())
+            if platelets <= 0 or platelets > 1000:
+                self.platelet_count.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
+                return False
+            else:
+                self.platelet_count.setStyleSheet("")
+                return True
+        except ValueError:
+            if self.platelet_count.text():
+                self.platelet_count.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
+                return False
+            else:
+                self.platelet_count.setStyleSheet("")
+                return True
+
     def validate_all_fields(self):
         validations = [
             self.validate_age(),
@@ -465,6 +542,7 @@ class MainWindow(QWidget):
             self.validate_height(),
             self.validate_creatinine(),
             self.validate_creatinine_clearance(),
+            self.validate_platelet_count(),
             self.validate_mpv(),
             self.validate_plcr(),
             self.validate_spontaneous_aggregation(),
@@ -490,6 +568,51 @@ class MainWindow(QWidget):
             return "АСК+тикагрелор"
         else:
             return ""
+
+    def calculate_gi_bleeding_score(self):
+        """Рассчитывает сумму баллов для оценки риска ЖКК"""
+        score = 0
+        
+        # Преобразуем "да"/"нет" в 1/0
+        if self.ulcer_history.currentText() == "да":
+            score += 1
+        if self.gi_bleeding_history.currentText() == "да":
+            score += 1
+        if self.nsaid_use.currentText() == "да":
+            score += 1
+        if self.steroid_use.currentText() == "да":
+            score += 1
+        if self.age_65.currentText() == "да":
+            score += 1
+        if self.dyspepsia.currentText() == "да":
+            score += 1
+        if self.gerd.currentText() == "да":
+            score += 1
+        if self.h_pylori.currentText() == "да":
+            score += 1
+        if self.alcohol_use.currentText() == "да":
+            score += 1
+            
+        return score
+
+    def format_html_table(self, headers, rows):
+        html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 12px;">'
+        
+        # Заголовки
+        html += '<tr style="background-color: #f2f2f2; font-weight: bold;">'
+        for header in headers:
+            html += f'<th style="border: 1px solid #000; padding: 8px; text-align: center;">{header}</th>'
+        html += '</tr>'
+        
+        # Данные
+        for row in rows:
+            html += '<tr>'
+            for cell in row:
+                html += f'<td style="border: 1px solid #000; padding: 8px; text-align: center;">{cell}</td>'
+            html += '</tr>'
+        
+        html += '</table>'
+        return html
 
     def save_report_to_doc(self):
         if not hasattr(self, 'current_report_data') or not self.current_report_data:
@@ -567,9 +690,27 @@ class MainWindow(QWidget):
                 return
             
             # Сбор данных
-            date = QDate.currentDate().toString("dd.MM.yyyy")
-            name = "____________________________________"
-            age = self.age.text() if self.age.text() else "______"
+            date = self.date.text() if self.date.text() else QDate.currentDate().toString("dd.MM.yyyy")
+            name_or_record = self.name_or_record.text() if self.name_or_record.text() else "____________________________________"
+            age = int(self.age.text()) if self.age.text() else 0
+            examination_type = self.examination_type.currentText()
+            gender = self.gender.currentText()
+            weight = float(self.weight.text()) if self.weight.text() else 0
+            creatinine = float(self.creatinine.text()) if self.creatinine.text() else 0
+            
+            # Расчет КК и СКФ
+            ccr = calculate_creatinine_clearance(age, weight, gender, creatinine)
+            gfr = calculate_ckd_epi(age, gender, creatinine)
+            
+            # Получаем количество тромбоцитов
+            platelet_count = self.platelet_count.text() if self.platelet_count.text() else "______"
+            
+            # Получаем рекомендации по отмене препаратов
+            selected_drug = self.get_selected_drug()
+            drug_cancellation = get_drug_cancellation_recommendation(platelet_count, selected_drug)
+            
+            # Расчет оценки риска ЖКК
+            gi_bleeding_score = self.calculate_gi_bleeding_score()
             
             # Получаем данные агрегации
             T_adp = float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else None
@@ -608,14 +749,16 @@ class MainWindow(QWidget):
             # Сохраняем данные для DOC экспорта
             self.current_report_data = {
                 'date': date,
-                'name': name,
+                'name_or_record': name_or_record,
+                'examination_type': examination_type,
                 'age': age,
                 'drugs': drugs_str,
                 'main_table_rows': [],
                 'cyp_table_rows': [],
                 'abcb1_table_rows': [],
                 'ticagrelor_table_rows': [],
-                'aspirin_table_rows': []
+                'aspirin_table_rows': [],
+                'gi_bleeding_table_rows': []
             }
 
             # Формируем HTML отчет и данные для таблиц
@@ -627,6 +770,8 @@ class MainWindow(QWidget):
                 .header {{ text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; }}
                 .section {{ margin: 20px 0; }}
                 .section-title {{ font-size: 14px; font-weight: bold; margin-bottom: 10px; }}
+                .subsection {{ margin: 15px 0; }}
+                .subsection-title {{ font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #2c3e50; }}
                 table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
                 th, td {{ border: 1px solid #000; padding: 8px; text-align: center; }}
                 th {{ background-color: #f2f2f2; font-weight: bold; }}
@@ -636,7 +781,8 @@ class MainWindow(QWidget):
                 <div class="header">РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ</div>
                 
                 <p><strong>Дата обследования:</strong> {date}</p>
-                <p><strong>ФИО:</strong> {name}</p>
+                <p><strong>ФИО / № истории болезни:</strong> {name_or_record}</p>
+                <p><strong>Обследование:</strong> {examination_type}</p>
                 <p><strong>Возраст:</strong> {age}</p>
                 
                 <div class="section">
@@ -837,7 +983,16 @@ class MainWindow(QWidget):
                 ])
 
             # Добавляем основную таблицу в отчет
-            html_report += format_html_table(main_table_headers, main_table_rows)
+            html_report += self.format_html_table(main_table_headers, main_table_rows)
+
+            # Добавляем расчетные показатели функции почек
+            html_report += f"""
+            <div class="section">
+                <div class="section-title">РАСЧЕТНЫЕ ПОКАЗАТЕЛИ ФУНКЦИИ ПОЧЕК</div>
+                <p><strong>Клиренс креатинина (КК):</strong> {ccr} мл/мин</p>
+                <p><strong>Скорость клубочковой фильтрации (СКФ):</strong> {gfr} мл/мин</p>
+            </div>
+            """
 
             # Таблица 2: Коррекция терапии клопидогрелом (CYP2C19)
             html_report += """
@@ -900,7 +1055,7 @@ class MainWindow(QWidget):
                 cyp_table_rows.append(["______", "-", "-", "-", "-", "-"])
                 self.current_report_data['cyp_table_rows'].append(["______", "-", "-", "-", "-", "-"])
 
-            html_report += format_html_table(cyp_table_headers, cyp_table_rows)
+            html_report += self.format_html_table(cyp_table_headers, cyp_table_rows)
             html_report += "</div>"
 
             # Таблица 3: Коррекция терапии клопидогрелом (ABCB1)
@@ -964,7 +1119,7 @@ class MainWindow(QWidget):
                 abcb1_table_rows.append(["______", "-", "-", "-", "-", "-"])
                 self.current_report_data['abcb1_table_rows'].append(["______", "-", "-", "-", "-", "-"])
 
-            html_report += format_html_table(abcb1_table_headers, abcb1_table_rows)
+            html_report += self.format_html_table(abcb1_table_headers, abcb1_table_rows)
             html_report += "</div>"
 
             # Таблица 4: Коррекция терапии тикагрелором
@@ -1001,7 +1156,7 @@ class MainWindow(QWidget):
                 ticagrelor_table_rows.append(["______", "-", "-", "-"])
                 self.current_report_data['ticagrelor_table_rows'].append(["______", "-", "-", "-"])
 
-            html_report += format_html_table(ticagrelor_table_headers, ticagrelor_table_rows)
+            html_report += self.format_html_table(ticagrelor_table_headers, ticagrelor_table_rows)
             html_report += "</div>"
 
             # Таблица 5: Коррекция терапии ацетилсалициловой кислотой
@@ -1038,7 +1193,56 @@ class MainWindow(QWidget):
                 aspirin_table_rows.append(["______", "-", "-", "-"])
                 self.current_report_data['aspirin_table_rows'].append(["______", "-", "-", "-"])
 
-            html_report += format_html_table(aspirin_table_headers, aspirin_table_rows)
+            html_report += self.format_html_table(aspirin_table_headers, aspirin_table_rows)
+            html_report += "</div>"
+
+            # Раздел: Прогноз непереносимости фармакотерапии
+            html_report += """
+            <div class="section">
+                <div class="section-title">ПРОГНОЗ НЕПЕРЕНОСИМОСТИ ФАРМАКОТЕРАПИИ</div>
+            """
+
+            # 1. Оценка риска желудочно-кишечного кровотечения
+            html_report += """
+            <div class="subsection">
+                <div class="subsection-title">1. Оценка риска желудочно-кишечного кровотечения</div>
+            """
+
+            gi_bleeding_headers = ["Параметр", "Значение", "Баллы"]
+            gi_bleeding_rows = [
+                ["Язвенная болезнь в анамнезе", self.ulcer_history.currentText(), "1" if self.ulcer_history.currentText() == "да" else "0"],
+                ["Желудочно-кишечное кровотечение в анамнезе", self.gi_bleeding_history.currentText(), "1" if self.gi_bleeding_history.currentText() == "да" else "0"],
+                ["Использование НПВП", self.nsaid_use.currentText(), "1" if self.nsaid_use.currentText() == "да" else "0"],
+                ["Прием ГКС", self.steroid_use.currentText(), "1" if self.steroid_use.currentText() == "да" else "0"],
+                ["Возраст ≥ 65 лет", self.age_65.currentText(), "1" if self.age_65.currentText() == "да" else "0"],
+                ["Диспепсия", self.dyspepsia.currentText(), "1" if self.dyspepsia.currentText() == "да" else "0"],
+                ["Желудочно-пищеводный рефлюкс", self.gerd.currentText(), "1" if self.gerd.currentText() == "да" else "0"],
+                ["Инфицирование H. pylori", self.h_pylori.currentText(), "1" if self.h_pylori.currentText() == "да" else "0"],
+                ["Хроническое употребление алкоголя", self.alcohol_use.currentText(), "1" if self.alcohol_use.currentText() == "да" else "0"],
+                ["Всего - баллов", "", str(gi_bleeding_score)]
+            ]
+
+            html_report += self.format_html_table(gi_bleeding_headers, gi_bleeding_rows)
+            html_report += "</div>"
+
+            # 2. Отмена препарата при уровне тромбоцитов
+            html_report += """
+            <div class="subsection">
+                <div class="subsection-title">2. Отмена препарата при уровне тромбоцитов</div>
+            """
+
+            drug_cancellation_headers = ["Параметр", "Значение"]
+            drug_cancellation_rows = [
+                ["Количество тромбоцитов", f"{platelet_count}×10⁹/л"],
+                ["Текущая терапия", selected_drug],
+                ["Рекомендация по отмене", drug_cancellation],
+                ["АСК - при уровне тромбоцитов", "≤10×10⁹/л"],
+                ["Клопидогрел - при уровне тромбоцитов", "≤30×10⁹/л"],
+                ["Тикагрелор - при уровне тромбоцитов", "≤50×10⁹/л"]
+            ]
+
+            html_report += self.format_html_table(drug_cancellation_headers, drug_cancellation_rows)
+            html_report += "</div>"
             html_report += "</div>"
 
             # Закрываем HTML
