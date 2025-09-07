@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtGui import QTextDocument
-from classes.Patient import PatientData, Gender, CYP2C19, ABCB1
+from .Patient import PatientData, Gender, CYP2C19, ABCB1
 from logic.Mod1 import mod1, mod1_text
 from logic.Mod2 import mod2
 from logic.Mod3 import mod3
@@ -636,7 +636,7 @@ class MainWindow(QWidget):
                 
                 # Добавляем основную информацию
                 doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
-                doc.add_paragraph(f"ФИО: {self.current_report_data['name']}")
+                doc.add_paragraph(f"ФИО: {self.current_report_data['name_or_record']}")
                 doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
                 doc.add_paragraph()
                 
