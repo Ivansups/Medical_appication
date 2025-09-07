@@ -1015,7 +1015,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 - 25%"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -1079,7 +1079,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 - 25%"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
