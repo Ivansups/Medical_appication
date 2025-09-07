@@ -12,9 +12,16 @@ from logic.Mod2 import mod2
 from logic.Mod3 import mod3
 from logic.Mod4 import mod4
 from logic.Mod5 import mod5
-from logic.exel_utils import append_patient_data, DEFAULT_FILENAME
-from logic.html_utils import format_html_table
+from logic.exel_utils import append_patient_data, DEFAULT_FILENAME, calculate_ckd_epi, calculate_creatinine_clearance
+from logic.html_utils import format_html_table, format_html_table_advanced
 from logic.word_utils import add_table_with_title
+from logic.validation_utils import (
+    validate_age, validate_weight, validate_height, validate_creatinine,
+    validate_mpv, validate_plcr, validate_spontaneous_aggregation,
+    validate_induced_aggregation_1_ADP, validate_induced_aggregation_5_ADP,
+    validate_induced_aggregation_15_ARA, validate_platelet_count,
+    get_drug_cancellation_recommendation
+)
 import docx
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import math

@@ -1,8 +1,51 @@
 import os
+import math
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 
 DEFAULT_FILENAME = "patients.xlsx"
+
+def calculate_ckd_epi(age, gender, creatinine):
+    """Расчет СКФ по формуле CKD-EPI"""
+    try:
+        # Конвертируем креатинин из мкмоль/л в мг/дл (1 мг/дл = 88.4 мкмоль/л)
+        scr_mg_dl = float(creatinine) / 88.4
+        
+        if gender == "Муж":
+            k = 0.9
+            alpha = -0.302
+            gender_factor = 1.0
+        else:
+            k = 0.7
+            alpha = -0.241
+            gender_factor = 1.012
+        
+        scr_k = scr_mg_dl / k
+        
+        min_val = min(scr_k, 1)
+        max_val = max(scr_k, 1)
+        
+        gfr = 142 * math.pow(min_val, alpha) * math.pow(max_val, -1.2) * math.pow(0.9938, age) * gender_factor
+        return round(gfr)
+    except:
+        return None
+
+def calculate_creatinine_clearance(age, weight, gender, creatinine):
+    """Расчет клиренса креатинина по Кокрофту-Голту"""
+    try:
+        age = float(age)
+        weight = float(weight)
+        creatinine = float(creatinine)
+        
+        # Формула Кокрофта-Голта
+        if gender == "Муж":
+            ccr = ((140 - age) * weight) / (72 * creatinine / 88.4)
+        else:
+            ccr = ((140 - age) * weight) / (72 * creatinine / 88.4) * 0.85
+        
+        return round(ccr)
+    except:
+        return None
 
 def create_or_load_workbook(filename=DEFAULT_FILENAME):
     if os.path.exists(filename):
