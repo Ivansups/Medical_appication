@@ -198,7 +198,7 @@ class ReportWindow(QWidget):
                 
                 # Добавляем основную информацию
                 doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
-                doc.add_paragraph(f"ФИО: {self.current_report_data['name']}")
+                doc.add_paragraph(f"ФИО: {self.current_report_data['name_or_record']}")
                 doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
                 doc.add_paragraph()
                 

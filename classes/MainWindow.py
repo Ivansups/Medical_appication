@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtGui import QTextDocument
-from classes.Patient import PatientData, Gender, CYP2C19, ABCB1
+from .Patient import PatientData, Gender, CYP2C19, ABCB1
 from logic.Mod1 import mod1, mod1_text
 from logic.Mod2 import mod2
 from logic.Mod3 import mod3
@@ -636,7 +636,7 @@ class MainWindow(QWidget):
                 
                 # Добавляем основную информацию
                 doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
-                doc.add_paragraph(f"ФИО: {self.current_report_data['name']}")
+                doc.add_paragraph(f"ФИО: {self.current_report_data['name_or_record']}")
                 doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
                 doc.add_paragraph()
                 
@@ -848,7 +848,7 @@ class MainWindow(QWidget):
                     evaluation_adp = "Агрегация тромбоцитов значительно подавлена"
                     prognosis_adp = "Риск геморрагических осложнений"
                 elif 10 < T_adp < 25:
-                    criterion_adp = "10 < T < 25 %"
+                    criterion_adp = "10 - 25 %"
                     evaluation_adp = "Агрегация тромбоцитов умеренно подавлена"
                     prognosis_adp = "Терапия эффективна"
                 else:
@@ -1015,7 +1015,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25%"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -1079,7 +1079,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25%"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -1142,7 +1142,7 @@ class MainWindow(QWidget):
                     state = "Агрегация тромбоцитов значительно подавлена"
                     recommendation = "Высокий риск геморрагических осложнений. Рассмотреть снижение дозы"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                     recommendation = "Продолжить прием тикагрелора. Терапия эффективна"
                 else:
@@ -1179,7 +1179,7 @@ class MainWindow(QWidget):
                     state = "Агрегация тромбоцитов значительно подавлена"
                     recommendation = "Высокий риск геморрагических осложнений. Продолжить прием ацетилсалициловой кислоты"
                 elif 2 < T_ara < 8:
-                    criterion = "2 < Т < 8 %"
+                    criterion = "2 - 8 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                     recommendation = "Продолжить прием ацетилсалициловой кислоты. Риск геморрагических осложнений"
                 else:
