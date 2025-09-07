@@ -702,7 +702,7 @@ class MainWindow(QWidget):
                     evaluation_adp = "Агрегация тромбоцитов значительно подавлена"
                     prognosis_adp = "Риск геморрагических осложнений"
                 elif 10 < T_adp < 25:
-                    criterion_adp = "10 < T < 25 %"
+                    criterion_adp = "10 - 25 %"
                     evaluation_adp = "Агрегация тромбоцитов умеренно подавлена"
                     prognosis_adp = "Терапия эффективна"
                 else:
@@ -860,7 +860,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -924,7 +924,7 @@ class MainWindow(QWidget):
                     criterion = "T ≤ 10 %"
                     state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
@@ -987,7 +987,7 @@ class MainWindow(QWidget):
                     state = "Агрегация тромбоцитов значительно подавлена"
                     recommendation = "Высокий риск геморрагических осложнений. Рассмотреть снижение дозы"
                 elif 10 < T_adp < 25:
-                    criterion = "10 < T < 25 %"
+                    criterion = "10 - 25 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                     recommendation = "Продолжить прием тикагрелора. Терапия эффективна"
                 else:
@@ -1024,7 +1024,7 @@ class MainWindow(QWidget):
                     state = "Агрегация тромбоцитов значительно подавлена"
                     recommendation = "Высокий риск геморрагических осложнений. Продолжить прием ацетилсалициловой кислоты"
                 elif 3 <= T_ara <= 7:
-                    criterion = "3≤ Т ≤7%"
+                    criterion = "3 - 7 %"
                     state = "Агрегация тромбоцитов умеренно подавлена"
                     recommendation = "Продолжить прием ацетилсалициловой кислоты. Риск геморрагических осложнений"
                 else:
