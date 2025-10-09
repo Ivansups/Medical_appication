@@ -1,19 +1,16 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, 
-    QPushButton, QTextEdit, QCheckBox, QFileDialog, QMessageBox, QGroupBox, 
-    QHBoxLayout, QLabel, QScrollArea, QDialog, QButtonGroup, QRadioButton
+    QPushButton, QFileDialog, QMessageBox, QGroupBox, 
+    QHBoxLayout, QLabel, QScrollArea, QDialog, QButtonGroup, QRadioButton, QTextEdit
 )
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
-from PySide6.QtGui import QTextDocument
-from classes.Patient import PatientData, Gender, CYP2C19, ABCB1
 from logic.Mod1 import mod1, mod1_text
 from logic.Mod2 import mod2
 from logic.Mod3 import mod3
 from logic.Mod4 import mod4
 from logic.Mod5 import mod5
-from logic.exel_utils import append_patient_data, DEFAULT_FILENAME, calculate_ckd_epi, calculate_creatinine_clearance
-from logic.html_utils import format_html_table, format_html_table_advanced
+from logic.exel_utils import calculate_ckd_epi, calculate_creatinine_clearance
+from logic.html_utils import format_html_table_advanced
 from logic.word_utils import add_table_with_title
 from logic.validation_utils import (
     validate_age, validate_weight, validate_height, validate_creatinine,
@@ -24,7 +21,6 @@ from logic.validation_utils import (
 )
 import docx
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-import math
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -66,7 +62,7 @@ class MainWindow(QWidget):
         # Поля выбора
         self.gender = QComboBox()
         self.gender.addItem("")  # Для необязательного выбора
-        self.gender.addItems([g.value for g in Gender])
+        self.gender.addItems(["Муж", "Жен"])
         basic_layout.addRow("Пол (выберите):", self.gender)
         
         # Поля ввода
@@ -91,7 +87,7 @@ class MainWindow(QWidget):
         
         self.cyp2c19 = QComboBox()
         self.cyp2c19.addItem("")
-        self.cyp2c19.addItems([c.value for c in CYP2C19])
+        self.cyp2c19.addItems(["CYP 2c19*1", "CYP 2c19*2", "CYP 2c19*3", "CYP 2c19*17"])
         genotype_layout.addRow("Генотип CYP2C19:", self.cyp2c19)
 
         self.abcb1 = QComboBox()
@@ -258,9 +254,6 @@ class MainWindow(QWidget):
         # Добавляем область прокрутки в главный layout
         main_layout.addWidget(scroll_area)
 
-        self.excel_filename = DEFAULT_FILENAME
-        self.patient_data = None
-        self.current_report_html = ""
         self.current_report_data = None
 
         # Применяем стили
@@ -325,6 +318,10 @@ class MainWindow(QWidget):
             }
                 """)
 
+        # Стили для валидации полей
+        self.default_style = "padding: 5px; border: 1px solid #bdc3c7; border-radius: 3px; background-color: #f8f9fa;"
+        self.error_style = "padding: 5px; background-color: #ffcccc; border: 2px solid red; border-radius: 3px;"
+        
         self.age.textChanged.connect(self.validate_age)
         self.weight.textChanged.connect(self.validate_weight)
         self.height_field.textChanged.connect(self.validate_height)
@@ -338,202 +335,79 @@ class MainWindow(QWidget):
         self.induced_aggregation_15_ARA.textChanged.connect(self.validate_induced_aggregation_15_ARA)
         self.platelet_count.textChanged.connect(self.validate_platelet_count)
 
-    # Методы валидации
+    # Методы валидации (используют функции из validation_utils и добавляют визуальную обратную связь)
     def validate_age(self):
-        try:
-            age = int(self.age.text())
-            if age <= 0 or age > 120:
-                self.age.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.age.setStyleSheet("")
-                return True
-        except ValueError:
-            self.age.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-            return False
+        is_valid = validate_age(self.age.text())
+        self.age.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_weight(self):
-        try:
-            weight = float(self.weight.text())
-            if weight <= 0 or weight > 300:
-                self.weight.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.weight.setStyleSheet("")
-                return True
-        except ValueError:
-            self.weight.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-            return False
+        is_valid = validate_weight(self.weight.text())
+        self.weight.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_height(self):
-        try:
-            height = float(self.height_field.text())
-            if height <= 0 or height > 250:
-                self.height_field.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.height_field.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.height_field.text():
-                self.height_field.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.height_field.setStyleSheet("")
-                return True
+        is_valid = validate_height(self.height_field.text())
+        self.height_field.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_creatinine(self):
-        try:
-            creatinine = float(self.creatinine.text())
-            if creatinine <= 0 or creatinine > 1000:
-                self.creatinine.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.creatinine.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.creatinine.text():
-                self.creatinine.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.creatinine.setStyleSheet("")
-                return True
+        is_valid = validate_creatinine(self.creatinine.text())
+        self.creatinine.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_creatinine_clearance(self):
+        """Валидация клиренса креатинина"""
         try:
             clearance = float(self.creatinine_clearance.text())
             if clearance <= 0 or clearance > 200:
-                self.creatinine_clearance.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
+                self.creatinine_clearance.setStyleSheet(self.error_style)
                 return False
             else:
-                self.creatinine_clearance.setStyleSheet("")
+                self.creatinine_clearance.setStyleSheet(self.default_style)
                 return True
         except ValueError:
             if self.creatinine_clearance.text():
-                self.creatinine_clearance.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
+                self.creatinine_clearance.setStyleSheet(self.error_style)
                 return False
             else:
-                self.creatinine_clearance.setStyleSheet("")
+                self.creatinine_clearance.setStyleSheet(self.default_style)
                 return True
 
     def validate_mpv(self):
-        try:
-            mpv = float(self.mpv.text())
-            if mpv <= 0 or mpv > 20:
-                self.mpv.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.mpv.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.mpv.text():
-                self.mpv.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.mpv.setStyleSheet("")
-                return True
+        is_valid = validate_mpv(self.mpv.text())
+        self.mpv.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_plcr(self):
-        try:
-            plcr = float(self.plcr.text())
-            if plcr < 0 or plcr > 100:
-                self.plcr.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.plcr.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.plcr.text():
-                self.plcr.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.plcr.setStyleSheet("")
-                return True
+        is_valid = validate_plcr(self.plcr.text())
+        self.plcr.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_spontaneous_aggregation(self):
-        try:
-            agg = float(self.spontaneous_aggregation.text())
-            if agg < 0 or agg > 100:
-                self.spontaneous_aggregation.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.spontaneous_aggregation.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.spontaneous_aggregation.text():
-                self.spontaneous_aggregation.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.spontaneous_aggregation.setStyleSheet("")
-                return True
+        is_valid = validate_spontaneous_aggregation(self.spontaneous_aggregation.text())
+        self.spontaneous_aggregation.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_induced_aggregation_1_ADP(self):
-        try:
-            agg = float(self.induced_aggregation_1_ADP.text())
-            if agg < 0 or agg > 100:
-                self.induced_aggregation_1_ADP.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.induced_aggregation_1_ADP.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.induced_aggregation_1_ADP.text():
-                self.induced_aggregation_1_ADP.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.induced_aggregation_1_ADP.setStyleSheet("")
-                return True
+        is_valid = validate_induced_aggregation_1_ADP(self.induced_aggregation_1_ADP.text())
+        self.induced_aggregation_1_ADP.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_induced_aggregation_5_ADP(self):
-        try:
-            agg = float(self.induced_aggregation_5_ADP.text())
-            if agg < 0 or agg > 100:
-                self.induced_aggregation_5_ADP.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.induced_aggregation_5_ADP.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.induced_aggregation_5_ADP.text():
-                self.induced_aggregation_5_ADP.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.induced_aggregation_5_ADP.setStyleSheet("")
-                return True
+        is_valid = validate_induced_aggregation_5_ADP(self.induced_aggregation_5_ADP.text())
+        self.induced_aggregation_5_ADP.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_induced_aggregation_15_ARA(self):
-        try:
-            agg = float(self.induced_aggregation_15_ARA.text())
-            if agg < 0 or agg > 100:
-                self.induced_aggregation_15_ARA.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.induced_aggregation_15_ARA.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.induced_aggregation_15_ARA.text():
-                self.induced_aggregation_15_ARA.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.induced_aggregation_15_ARA.setStyleSheet("")
-                return True
+        is_valid = validate_induced_aggregation_15_ARA(self.induced_aggregation_15_ARA.text())
+        self.induced_aggregation_15_ARA.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_platelet_count(self):
-        try:
-            platelets = float(self.platelet_count.text())
-            if platelets <= 0 or platelets > 1000:
-                self.platelet_count.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.platelet_count.setStyleSheet("")
-                return True
-        except ValueError:
-            if self.platelet_count.text():
-                self.platelet_count.setStyleSheet("background-color: #ffcccc; border: 2px solid red;")
-                return False
-            else:
-                self.platelet_count.setStyleSheet("")
-                return True
+        is_valid = validate_platelet_count(self.platelet_count.text())
+        self.platelet_count.setStyleSheet(self.default_style if is_valid else self.error_style)
+        return is_valid
 
     def validate_all_fields(self):
         validations = [
@@ -595,24 +469,6 @@ class MainWindow(QWidget):
             
         return score
 
-    def format_html_table(self, headers, rows):
-        html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 12px;">'
-        
-        # Заголовки
-        html += '<tr style="background-color: #f2f2f2; font-weight: bold;">'
-        for header in headers:
-            html += f'<th style="border: 1px solid #000; padding: 8px; text-align: center;">{header}</th>'
-        html += '</tr>'
-        
-        # Данные
-        for row in rows:
-            html += '<tr>'
-            for cell in row:
-                html += f'<td style="border: 1px solid #000; padding: 8px; text-align: center;">{cell}</td>'
-            html += '</tr>'
-        
-        html += '</table>'
-        return html
 
     def save_report_to_doc(self):
         if not hasattr(self, 'current_report_data') or not self.current_report_data:
@@ -801,12 +657,12 @@ class MainWindow(QWidget):
                     criterion = "≤ 1.56"
                     evaluation = "Благоприятная"
                     prognosis_text = "Неблагоприятных событий в течение года не ожидается"
-                elif 1.561 <= prognosis_value <= 2.087:
-                    criterion = "1.561-2.087"
+                elif 1.561 <= prognosis_value <= 2.08:
+                    criterion = "1.561-2.08"
                     evaluation = "Неблагоприятная"
                     prognosis_text = "Возможны обращения за медицинской помощью в течение ближайшего года"
-                else:
-                    criterion = "> 2.08"
+                else:  # >= 2.09
+                    criterion = "≥ 2.09"
                     evaluation = "Риск повторных сосудистых событий"
                     prognosis_text = "Высокий риск повторного инфаркта и летальный исход"
                 main_table_rows.append([
@@ -983,7 +839,7 @@ class MainWindow(QWidget):
                 ])
 
             # Добавляем основную таблицу в отчет
-            html_report += self.format_html_table(main_table_headers, main_table_rows)
+            html_report += format_html_table_advanced(main_table_headers, main_table_rows)
 
             # Добавляем расчетные показатели функции почек
             html_report += f"""
@@ -1011,43 +867,17 @@ class MainWindow(QWidget):
             
             cyp_table_rows = []
             if T_adp is not None and cyp_genotype != "______":
+                result = mod2(T_adp, cyp_genotype)
+                state = result[0]
+                metabolism = result[1]
+                recommendation = result[2]
+                
                 if T_adp <= 10:
                     criterion = "T ≤ 10 %"
-                    state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
                     criterion = "10 < T < 25 %"
-                    state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
-                    state = "Агрегация тромбоцитов сохранена"
-                
-                if cyp_genotype == "CYP 2c19*1":
-                    metabolism = "Нормальный метаболизм"
-                    if T_adp <= 10:
-                        recommendation = "Продолжить прием клопидогрела. Риск геморрагических осложнений"
-                    elif 10 < T_adp < 25:
-                        recommendation = "Продолжить прием клопидогрела. Терапия эффективна"
-                    else:
-                        recommendation = "Определить комплаентность пациента. Контроль агрегации через 5 дней"
-                elif cyp_genotype in ["CYP 2c19*2", "CYP 2c19*3"]:
-                    metabolism = "Замедленный метаболизм"
-                    if T_adp <= 10:
-                        recommendation = "Продолжить прием клопидогрела. Риск геморрагических осложнений"
-                    elif 10 < T_adp < 25:
-                        recommendation = "Продолжить прием клопидогрела. Терапия эффективна"
-                    else:
-                        recommendation = "Замена на прасугрел или тикагрелор. Контроль агрегации через 5 дней"
-                elif cyp_genotype == "CYP 2c19*17":
-                    metabolism = "Ускоренный метаболизм"
-                    if T_adp <= 10:
-                        recommendation = "Снизить дозу клопидогрела. Высокий риск геморрагических осложнений"
-                    elif 10 < T_adp < 25:
-                        recommendation = "Продолжить прием клопидогрела. Терапия эффективна"
-                    else:
-                        recommendation = "Определить комплаентность пациента. Контроль агрегации через 5 дней"
-                else:
-                    metabolism = "Неизвестный метаболизм"
-                    recommendation = "Требуется дополнительное исследование"
                 
                 cyp_table_rows.append([f"{T_adp}%", criterion, state, cyp_genotype, metabolism, recommendation])
                 self.current_report_data['cyp_table_rows'].append([f"{T_adp}%", criterion, state, cyp_genotype, metabolism, recommendation])
@@ -1055,7 +885,7 @@ class MainWindow(QWidget):
                 cyp_table_rows.append(["______", "-", "-", "-", "-", "-"])
                 self.current_report_data['cyp_table_rows'].append(["______", "-", "-", "-", "-", "-"])
 
-            html_report += self.format_html_table(cyp_table_headers, cyp_table_rows)
+            html_report += format_html_table_advanced(cyp_table_headers, cyp_table_rows)
             html_report += "</div>"
 
             # Таблица 3: Коррекция терапии клопидогрелом (ABCB1)
@@ -1075,43 +905,17 @@ class MainWindow(QWidget):
             
             abcb1_table_rows = []
             if T_adp is not None and abcb1_genotype != "______":
+                result = mod3(T_adp, abcb1_genotype)
+                state = result[0]
+                transport = result[1]
+                recommendation = result[2]
+                
                 if T_adp <= 10:
                     criterion = "T ≤ 10 %"
-                    state = "Агрегация тромбоцитов значительно подавлена"
                 elif 10 < T_adp < 25:
                     criterion = "10 < T < 25 %"
-                    state = "Агрегация тромбоцитов умеренно подавлена"
                 else:
                     criterion = "T ≥ 25 %"
-                    state = "Агрегация тромбоцитов сохранена"
-                
-                if abcb1_genotype == "TT":
-                    transport = "Ускоренное выведение"
-                    if T_adp <= 10:
-                        recommendation = "Продолжить прием клопидогрела. Риск геморрагических осложнений"
-                    elif 10 < T_adp < 25:
-                        recommendation = "Продолжить прием клопидогрела. Терапия эффективна"
-                    else:
-                        recommendation = "Увеличить дозу клопидогрела или замена на другой антиагрегант"
-                elif abcb1_genotype == "TC":
-                    transport = "Незначительно ускоренное выведение"
-                    if T_adp <= 10:
-                        recommendation = "Продолжить прием клопидогрела. Риск геморрагических осложнений"
-                    elif 10 < T_adp < 25:
-                        recommendation = "Продолжить прием клопидогreла. Терапия эффективна"
-                    else:
-                        recommendation = "Контроль агрегации через 5 дней. Рассмотреть увеличение дозы"
-                elif abcb1_genotype == "CC":
-                    transport = "Нормальное выведение"
-                    if T_adp <= 10:
-                        recommendation = "Продолжить прием клопидогрела. Риск геморрагических осложнений"
-                    elif 10 < T_adp < 25:
-                        recommendation = "Продолжить прием клопидогрела. Терапия эффективна"
-                    else:
-                        recommendation = "Определить комплаентность пациента. Контроль агрегации через 5 дней"
-                else:
-                    transport = "Неизвестный транспорт"
-                    recommendation = "Требуется дополнительное исследование"
                 
                 abcb1_table_rows.append([f"{T_adp}%", criterion, state, abcb1_genotype, transport, recommendation])
                 self.current_report_data['abcb1_table_rows'].append([f"{T_adp}%", criterion, state, abcb1_genotype, transport, recommendation])
@@ -1119,7 +923,7 @@ class MainWindow(QWidget):
                 abcb1_table_rows.append(["______", "-", "-", "-", "-", "-"])
                 self.current_report_data['abcb1_table_rows'].append(["______", "-", "-", "-", "-", "-"])
 
-            html_report += self.format_html_table(abcb1_table_headers, abcb1_table_rows)
+            html_report += format_html_table_advanced(abcb1_table_headers, abcb1_table_rows)
             html_report += "</div>"
 
             # Таблица 4: Коррекция терапии тикагрелором
@@ -1137,18 +941,16 @@ class MainWindow(QWidget):
             
             ticagrelor_table_rows = []
             if T_adp is not None:
+                result = mod4(T_adp)
+                state = result[0]
+                recommendation = result[1]
+                
                 if T_adp <= 10:
                     criterion = "T ≤ 10 %"
-                    state = "Агрегация тромбоцитов значительно подавлена"
-                    recommendation = "Высокий риск геморрагических осложнений. Рассмотреть снижение дозы"
                 elif 10 < T_adp < 25:
                     criterion = "10 < T < 25 %"
-                    state = "Агрегация тромбоцитов умеренно подавлена"
-                    recommendation = "Продолжить прием тикагрелора. Терапия эффективна"
                 else:
                     criterion = "T ≥ 25 %"
-                    state = "Агрегация тромбоцитов сохранена"
-                    recommendation = "Терапия неэффективна. Замена на другой антиагрегант"
                 
                 ticagrelor_table_rows.append([f"{T_adp}%", criterion, state, recommendation])
                 self.current_report_data['ticagrelor_table_rows'].append([f"{T_adp}%", criterion, state, recommendation])
@@ -1156,7 +958,7 @@ class MainWindow(QWidget):
                 ticagrelor_table_rows.append(["______", "-", "-", "-"])
                 self.current_report_data['ticagrelor_table_rows'].append(["______", "-", "-", "-"])
 
-            html_report += self.format_html_table(ticagrelor_table_headers, ticagrelor_table_rows)
+            html_report += format_html_table_advanced(ticagrelor_table_headers, ticagrelor_table_rows)
             html_report += "</div>"
 
             # Таблица 5: Коррекция терапии ацетилсалициловой кислотой
@@ -1174,18 +976,16 @@ class MainWindow(QWidget):
             
             aspirin_table_rows = []
             if T_ara is not None:
+                result = mod5(T_ara)
+                state = result[0]
+                recommendation = result[1]
+                
                 if T_ara <= 2:
                     criterion = "Т ≤ 2 %"
-                    state = "Агрегация тромбоцитов значительно подавлена"
-                    recommendation = "Высокий риск геморрагических осложнений. Продолжить прием ацетилсалициловой кислоты"
-                elif 2 < T_ara < 8:
-                    criterion = "3 ≤ Т ≤ 7 %"
-                    state = "Агрегация тромбоцитов умеренно подавлена"
-                    recommendation = "Продолжить прием ацетилсалициловой кислоты. Риск геморрагических осложнений"
-                else:
-                    criterion = "Т ≥ 8 %"
-                    state = "Агрегация тромбоцитов сохранена"
-                    recommendation = "Определить комплаентность пациента. Замена на препарат ацетилсалициловой кислоты другого производителя. Контроль агрегации через 5 дней"
+                elif 2.1 <= T_ara <= 7.9:
+                    criterion = "2.1 ≤ Т ≤ 7.9 %"
+                else:  # T_ara >= 8.0
+                    criterion = "Т ≥ 8.0 %"
                 
                 aspirin_table_rows.append([f"{T_ara}%", criterion, state, recommendation])
                 self.current_report_data['aspirin_table_rows'].append([f"{T_ara}%", criterion, state, recommendation])
@@ -1193,7 +993,7 @@ class MainWindow(QWidget):
                 aspirin_table_rows.append(["______", "-", "-", "-"])
                 self.current_report_data['aspirin_table_rows'].append(["______", "-", "-", "-"])
 
-            html_report += self.format_html_table(aspirin_table_headers, aspirin_table_rows)
+            html_report += format_html_table_advanced(aspirin_table_headers, aspirin_table_rows)
             html_report += "</div>"
 
             # Раздел: Прогноз непереносимости фармакотерапии
@@ -1222,7 +1022,7 @@ class MainWindow(QWidget):
                 ["Всего - баллов", "", str(gi_bleeding_score)]
             ]
 
-            html_report += self.format_html_table(gi_bleeding_headers, gi_bleeding_rows)
+            html_report += format_html_table_advanced(gi_bleeding_headers, gi_bleeding_rows)
             html_report += "</div>"
 
             # 2. Отмена препарата при уровне тромбоцитов
@@ -1241,7 +1041,7 @@ class MainWindow(QWidget):
                 ["Тикагрелор - при уровне тромбоцитов", "≤50×10⁹/л"]
             ]
 
-            html_report += self.format_html_table(drug_cancellation_headers, drug_cancellation_rows)
+            html_report += format_html_table_advanced(drug_cancellation_headers, drug_cancellation_rows)
             html_report += "</div>"
             html_report += "</div>"
 
