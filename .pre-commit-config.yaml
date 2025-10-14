@@ -36,14 +36,14 @@ repos:
     hooks:
       - id: run-unit-tests
         name: Run Unit Tests
-        entry: bash -c 'source venv/bin/activate && python -m pytest tests/Unit_test.py -v'
+        entry: python -m pytest tests/Unit_test.py -v
         language: system
         pass_filenames: false  # ИСПРАВЛЕНО: было pass_filename
         always_run: true
 
       - id: run-gui-tests
         name: Run GUI Tests
-        entry: bash -c 'source venv/bin/activate && python -m pytest tests/GIU_tests.py -v'  # ИСПРАВЛЕНО: было GUL_tests
+        entry: python -m pytest tests/GIU_tests.py -v  # ИСПРАВЛЕНО: было GUL_tests
         language: system
         pass_filenames: false  # ИСПРАВЛЕНО: было pass_filename
         always_run: true
