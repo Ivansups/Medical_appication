@@ -669,8 +669,7 @@ class MainWindow(QWidget):
                 "aspirin_table_rows": [],
                 "gi_bleeding_table_rows": [],
             }
-
-            # Формируем HTML отчет и данные для таблиц
+            # Формируем HTML отчет и данные для таблицы
             html_report = f"""
             <html>
             <head>
