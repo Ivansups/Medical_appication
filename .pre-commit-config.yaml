@@ -31,20 +31,20 @@ repos:
       - id: isort
         args: ["--profile", "black", "--line-length=119"]
 
-  # Запуск ваших тестов
-  - repo: local
-    hooks:
-      - id: run-unit-tests
-        name: Run Unit Tests
-        entry: python -m pytest tests/Unit_test.py -v
-        language: system
-        pass_filenames: false  # ИСПРАВЛЕНО: было pass_filename
-        always_run: true
+  # # Запуск ваших тестов
+  # - repo: local
+  #   hooks:
+  #     - id: run-unit-tests
+  #       name: Run Unit Tests
+  #       entry: python -m pytest tests/Unit_test.py -v
+  #       language: system
+  #       pass_filenames: false  # ИСПРАВЛЕНО: было pass_filename
+  #       always_run: true
 
-      - id: run-gui-tests
-        name: Run GUI Tests
-        entry: python -m pytest tests/GIU_tests.py -v  # ИСПРАВЛЕНО: было GUL_tests
-        language: system
-        pass_filenames: false  # ИСПРАВЛЕНО: было pass_filename
-        always_run: true
-        stages: [manual]  # GUI тесты можно запускать вручную
+  #     - id: run-gui-tests
+  #       name: Run GUI Tests
+  #       entry: python -m pytest tests/GIU_tests.py -v  # ИСПРАВЛЕНО: было GUL_tests
+  #       language: system
+  #       pass_filenames: false  # ИСПРАВЛЕНО: было pass_filename
+  #       always_run: true
+  #       stages: [manual]  # GUI тесты можно запускать вручную

@@ -1,10 +1,15 @@
 import math
 import os
+import sys
+import tempfile
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 
-DEFAULT_FILENAME = "patients.xlsx"
+if getattr(sys, "frozen", False):
+    DEFAULT_FILENAME = os.path.join(tempfile.gettempdir(), "patients.xlsx")
+else:
+    DEFAULT_FILENAME = "patients.xlsx"
 
 
 def calculate_ckd_epi(age, gender, creatinine):
