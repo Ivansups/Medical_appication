@@ -1,3 +1,7 @@
+import os
+import sys
+import tempfile
+
 import docx
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from PySide6.QtCore import QDate, Qt
@@ -18,12 +22,20 @@ from logic.word_utils import add_table_with_title
 
 
 class ReportWindow(QWidget):
-    def __init__(self, report_text, patient_data=None, excel_filename="patients.xlsx"):
+    def __init__(self, report_text, patient_data=None, excel_filename=None):
         super().__init__()
         self.setWindowTitle("📋 Полный медицинский отчет по пациенту")
         self.resize(900, 700)
         self.patient_data = patient_data
-        self.excel_filename = excel_filename
+
+        if excel_filename is None:
+            if getattr(sys, "frozen", False):
+                self.excel_filename = os.path.join(tempfile.gettempdir(), "patients.xlsx")
+            else:
+                self.excel_filename = "patients.xlsx"
+        else:
+            self.excel_filename = excel_filename
+
         self.current_report_data = None
 
         # Главный layout
