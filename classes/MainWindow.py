@@ -513,7 +513,7 @@ class MainWindow(QWidget):
 
                 # Добавляем основную информацию
                 doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
-                doc.add_paragraph(f"ФИО: {self.current_report_data['name']}")
+                doc.add_paragraph(f"ФИО: {self.current_report_data['name_or_record']}")
                 doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
                 doc.add_paragraph()
 
@@ -753,7 +753,8 @@ class MainWindow(QWidget):
                     evaluation_adp = "Агрегация тромбоцитов значительно подавлена"
                     prognosis_adp = "Риск геморрагических осложнений"
                 elif 10 < T_adp < 25:
-                    criterion_adp = "10 < T < 25 %"
+                    criterion = "10 < T < 25 %"
+                    criterion_adp = "10 - 25 %"
                     evaluation_adp = "Агрегация тромбоцитов умеренно подавлена"
                     prognosis_adp = "Терапия эффективна"
                 else:
@@ -1024,11 +1025,6 @@ class MainWindow(QWidget):
 
                 if T_ara <= 2:
                     criterion = "Т ≤ 2 %"
-                elif 2.1 <= T_ara <= 7.9:
-                    criterion = "2.1 ≤ Т ≤ 7.9 %"
-                else:  # T_ara >= 8.0
-                    criterion = "Т ≥ 8.0 %"
-
                 aspirin_table_rows.append([f"{T_ara}%", criterion, state, recommendation])
                 self.current_report_data["aspirin_table_rows"].append([f"{T_ara}%", criterion, state, recommendation])
             else:
