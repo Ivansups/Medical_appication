@@ -12,7 +12,6 @@ def mod1(
     induced_aggregation_5_ADP,
     induced_aggregation_15_ARA,
 ):
-
     gender_num = 1 if gender == "Муж" else 2 if gender == "Жен" else 0
 
     const = -2.478
