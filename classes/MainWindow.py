@@ -706,16 +706,16 @@ class MainWindow(QWidget):
 
             # Строка 1: Коэффициент прогноза
             if isinstance(prognosis_value, (int, float)):
-                if prognosis_value <= 1.56:
-                    criterion = "≤ 1.56"
+                if prognosis_value <= 1.561:
+                    criterion = "≤ 1.561"
                     evaluation = "Благоприятная"
                     prognosis_text = "Неблагоприятных событий в течение года не ожидается"
-                elif 1.561 <= prognosis_value <= 2.08:
-                    criterion = "1.561-2.08"
+                elif 1.561 < prognosis_value < 2.087:
+                    criterion = "1.561-2.087"
                     evaluation = "Неблагоприятная"
                     prognosis_text = "Возможны обращения за медицинской помощью в течение ближайшего года"
-                else:  # >= 2.09
-                    criterion = "≥ 2.09"
+                else:  # > 2.087
+                    criterion = "≥ 2.087"
                     evaluation = "Риск повторных сосудистых событий"
                     prognosis_text = "Высокий риск повторного инфаркта и летальный исход"
                 main_table_rows.append(
