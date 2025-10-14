@@ -9,6 +9,7 @@ def validate_age(age_text):
     except ValueError:
         return False
 
+
 def validate_weight(weight_text):
     """Валидация веса"""
     try:
@@ -19,6 +20,7 @@ def validate_weight(weight_text):
             return True
     except ValueError:
         return False
+
 
 def validate_height(height_text):
     """Валидация роста"""
@@ -34,6 +36,7 @@ def validate_height(height_text):
         else:
             return True
 
+
 def validate_creatinine(creatinine_text):
     """Валидация креатинина"""
     try:
@@ -47,6 +50,7 @@ def validate_creatinine(creatinine_text):
             return False
         else:
             return True
+
 
 def validate_mpv(mpv_text):
     """Валидация MPV"""
@@ -62,6 +66,7 @@ def validate_mpv(mpv_text):
         else:
             return True
 
+
 def validate_plcr(plcr_text):
     """Валидация PLCR"""
     try:
@@ -75,6 +80,7 @@ def validate_plcr(plcr_text):
             return False
         else:
             return True
+
 
 def validate_spontaneous_aggregation(agg_text):
     """Валидация спонтанной агрегации"""
@@ -90,6 +96,7 @@ def validate_spontaneous_aggregation(agg_text):
         else:
             return True
 
+
 def validate_induced_aggregation_1_ADP(agg_text):
     """Валидация индуцированной агрегации 1 мкМоль АДФ"""
     try:
@@ -103,6 +110,7 @@ def validate_induced_aggregation_1_ADP(agg_text):
             return False
         else:
             return True
+
 
 def validate_induced_aggregation_5_ADP(agg_text):
     """Валидация индуцированной агрегации 5 мкМоль АДФ"""
@@ -118,6 +126,7 @@ def validate_induced_aggregation_5_ADP(agg_text):
         else:
             return True
 
+
 def validate_induced_aggregation_15_ARA(agg_text):
     """Валидация индуцированной агрегации 15 мкл арахидоновой кислоты"""
     try:
@@ -132,6 +141,7 @@ def validate_induced_aggregation_15_ARA(agg_text):
         else:
             return True
 
+
 def validate_platelet_count(platelets_text):
     """Валидация количества тромбоцитов"""
     try:
@@ -145,6 +155,7 @@ def validate_platelet_count(platelets_text):
             return False
         else:
             return True
+
 
 def get_drug_cancellation_recommendation(platelet_count, drug_type):
     """Получить рекомендацию по отмене препарата на основе уровня тромбоцитов"""
@@ -166,14 +177,14 @@ def get_drug_cancellation_recommendation(platelet_count, drug_type):
                 return "Рекомендовано отменить тикагрелор"
             else:
                 return "Прием может быть продолжен"
-        elif 30 < platelets <= 50: 
+        elif 30 < platelets <= 50:
             if drug_type in ["АСК+тикагрелор", "Тикагрелор"]:
                 return "Рекомендовано отменить тикагрелор"
             elif drug_type in ["клопидогрел", "АСК", "АСК+клопидогрел"]:
                 return "Прием может быть продолжен"
-            else: 
+            else:
                 return "Прием может быть продолжен"
         else:
             return "Прием может быть продолжен"
-    except:
+    except (ValueError, TypeError):
         return "Не определено"

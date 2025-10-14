@@ -1,16 +1,17 @@
-import sys
 import os
+import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from classes.MainWindow import MainWindow
+import unittest  # noqa: E402
 
-import unittest
-from PySide6.QtWidgets import QApplication
-from PySide6.QtTest import QTest
-from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
+
+from classes.MainWindow import MainWindow  # noqa: E402
 
 app = QApplication(sys.argv)
+
 
 class TestMainWindow(unittest.TestCase):
     def setUp(self):
@@ -24,6 +25,7 @@ class TestMainWindow(unittest.TestCase):
         age_field = self.window.age
         QTest.keyClicks(age_field, "35")
         self.assertEqual(age_field.text(), "35")
+
     def enter_Weight(self):
         weight = self.window.weight
         QTest.keyClicks(weight, "120")
@@ -46,15 +48,16 @@ class TestMainWindow(unittest.TestCase):
         if self.window.drug_aspirin_ticagrelor.isChecked():
             drugs.append("АСК+тикагрелор")
         self.assertEqual(drugs, ["АСК", "АСК+клопидогрел"])
+
     def test_vakidate_value(self):
-        self.window.age.setText('150')
+        self.window.age.setText("150")
         # Проверяем, что поле age имеет красный фон при неверном значении
         self.assertIn("background-color: #ffcccc", self.window.age.styleSheet())
-        
+
         # Проверяем, что поле weight не имеет красного фона при пустом значении
-        self.window.weight.setText('')
+        self.window.weight.setText("")
         self.assertNotIn("background-color: #ffcccc", self.window.weight.styleSheet())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

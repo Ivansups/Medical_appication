@@ -1,11 +1,19 @@
 def mod1(
-    gender, age, weight, height, creatinine, creatinine_clearance,
-    mpv, plcr, spontaneous_aggregation, induced_aggregation_1_ADP,
-    induced_aggregation_5_ADP, induced_aggregation_15_ARA
+    gender,
+    age,
+    weight,
+    height,
+    creatinine,
+    creatinine_clearance,
+    mpv,
+    plcr,
+    spontaneous_aggregation,
+    induced_aggregation_1_ADP,
+    induced_aggregation_5_ADP,
+    induced_aggregation_15_ARA,
 ):
-   
     gender_num = 1 if gender == "Муж" else 2 if gender == "Жен" else 0
-    
+
     const = -2.478
     k_gender = 0.477
     k_age = 0.05
@@ -21,43 +29,28 @@ def mod1(
     k_ind15 = 0.027
 
     result = (
-        const +
-        k_gender * gender_num +
-        k_age * (age or 0) +
-        k_weight * (weight or 0) +
-        k_height * (height or 0) +
-        k_creatinine * (creatinine or 0) +
-        k_clearance * (creatinine_clearance or 0) +
-        k_mpv * (mpv or 0) +
-        k_plcr * (plcr or 0) +
-        k_spont * (spontaneous_aggregation or 0) +
-        k_ind1 * (induced_aggregation_1_ADP or 0) +
-        k_ind5 * (induced_aggregation_5_ADP or 0) +
-        k_ind15 * (induced_aggregation_15_ARA or 0)
+        const
+        + k_gender * gender_num
+        + k_age * (age or 0)
+        + k_weight * (weight or 0)
+        + k_height * (height or 0)
+        + k_creatinine * (creatinine or 0)
+        + k_clearance * (creatinine_clearance or 0)
+        + k_mpv * (mpv or 0)
+        + k_plcr * (plcr or 0)
+        + k_spont * (spontaneous_aggregation or 0)
+        + k_ind1 * (induced_aggregation_1_ADP or 0)
+        + k_ind5 * (induced_aggregation_5_ADP or 0)
+        + k_ind15 * (induced_aggregation_15_ARA or 0)
     )
     result = round(result, 3)
     return result
 
+
 def mod1_text(result):
     if result <= 1.56:
-        return (
-            "Благоприятная",
-            [
-                "Неблагоприятных событий в течение года не ожидается"
-            ]
-        )
-    elif 1.561 <= result <= 2.087:
-        return (
-            "Неблагоприятная",
-            [
-                "Возможны обращения за медицинской помощью в течение ближайшего года"
-            ]
-        )
-    else:
-        return (
-            "Риск повторных сосудистых событий",
-            [
-                "Высокий риск повторного инфаркта и летальный исход"
-            ]
-        )
-    
+        return ("Благоприятная", ["Неблагоприятных событий в течение года не ожидается"])
+    elif 1.561 <= result <= 2.08:
+        return ("Неблагоприятная", ["Возможны обращения за медицинской помощью в течение ближайшего года"])
+    else:  # >= 2.09
+        return ("Риск повторных сосудистых событий", ["Высокий риск повторного инфаркта и летальный исход"])
