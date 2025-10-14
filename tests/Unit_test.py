@@ -1,42 +1,37 @@
-import re
-import unittest
-import sys
 import os
-import tempfile
+import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from PySide6.QtWidgets import QApplication
-from PySide6.QtTest import QTest
-from PySide6.QtCore import Qt
+import unittest  # noqa: E402
 
 # Импортируем ваши модули
-from classes.MainWindow import MainWindow
-from logic.Mod1 import mod1, mod1_text
-from logic.Mod2 import mod2
-from logic.Mod3 import mod3
-from logic.Mod4 import mod4
-from logic.Mod5 import mod5
-from logic.exel_utils import append_patient_data, create_or_load_workbook
+from logic.exel_utils import create_or_load_workbook  # noqa: E402
+from logic.Mod1 import mod1, mod1_text  # noqa: E402
+from logic.Mod2 import mod2  # noqa: E402
+from logic.Mod3 import mod3  # noqa: E402
+from logic.Mod4 import mod4  # noqa: E402
+from logic.Mod5 import mod5  # noqa: E402
+
 
 class TestMedicalModules(unittest.TestCase):
     def test_mod1(self):
         result = mod1("Муж", 55, 80, 175, 90, 85, 10.5, 25, 12, 30, 40, 18)
         self.assertIsInstance(result, float)
-        
+
         prognosis, recommendations = mod1_text(1.5)
         self.assertEqual(prognosis, "Благоприятная")
         self.assertIsInstance(recommendations, list)
-    
+
     def test_prognosis_calculation(self):
         result = mod1("Муж", 55, 80, 175, 90, 85, 10.5, 25, 12, 30, 40, 18)
-        self.assertIsInstance(result, float)    
-    
+        self.assertIsInstance(result, float)
+
     def test_mod2(self):
         result = mod2(2, "CYP 2c19*1")
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 3)
-        
+
         result = mod2(15, "CYP 2c19*2")
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 3)
@@ -45,7 +40,7 @@ class TestMedicalModules(unittest.TestCase):
         result = mod3(10, "TT")
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 3)
-        
+
         result = mod3(100, "CC")
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 3)
@@ -65,5 +60,6 @@ class TestMedicalModules(unittest.TestCase):
         self.assertIsNotNone(wb)
         self.assertIsNotNone(ws)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

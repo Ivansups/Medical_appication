@@ -8,4 +8,6 @@
     },
     "code-runner.runInTerminal": true,
     "code-runner.saveFileBeforeRun": true
+    "editor.minimap.enabled": false
+    "editor.mouseWheelZoom": true
 }

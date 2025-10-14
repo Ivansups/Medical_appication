@@ -71,3 +71,9 @@ pyinstaller Main.spec
   - `Patient.py` - класс пациента с данными и перечислениями
 - `tests/` - тесты
 - `build/` - файлы сборки PyInstaller
+
+
+## Команды для линтера (Важно запускать при каждом изменении кода!)
+```bash
+pre-commit run --all-files
+```

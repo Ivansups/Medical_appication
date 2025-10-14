@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
 from enum import Enum
+from typing import List, Optional
+
 
 class Gender(str, Enum):
     MALE = "Муж"
     FEMALE = "Жен"
+
 
 class CYP2C19(str, Enum):
     STAR1 = "CYP 2c19*1"
@@ -12,10 +14,12 @@ class CYP2C19(str, Enum):
     STAR3 = "CYP 2c19*3"
     STAR17 = "CYP 2c19*17"
 
+
 class ABCB1(str, Enum):
     TT = "TT"
     TC = "TC"
     CC = "CC"
+
 
 @dataclass
 class PatientData:

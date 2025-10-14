@@ -1,42 +1,63 @@
+import docx
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, 
-    QPushButton, QFileDialog, QMessageBox, QGroupBox, 
-    QHBoxLayout, QLabel, QScrollArea, QDialog, QButtonGroup, QRadioButton, QTextEdit
+    QButtonGroup,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, QDate
+
+from logic.exel_utils import calculate_ckd_epi, calculate_creatinine_clearance
+from logic.html_utils import format_html_table_advanced
 from logic.Mod1 import mod1, mod1_text
 from logic.Mod2 import mod2
 from logic.Mod3 import mod3
 from logic.Mod4 import mod4
 from logic.Mod5 import mod5
-from logic.exel_utils import calculate_ckd_epi, calculate_creatinine_clearance
-from logic.html_utils import format_html_table_advanced
-from logic.word_utils import add_table_with_title
 from logic.validation_utils import (
-    validate_age, validate_weight, validate_height, validate_creatinine,
-    validate_mpv, validate_plcr, validate_spontaneous_aggregation,
-    validate_induced_aggregation_1_ADP, validate_induced_aggregation_5_ADP,
-    validate_induced_aggregation_15_ARA, validate_platelet_count,
-    get_drug_cancellation_recommendation
+    get_drug_cancellation_recommendation,
+    validate_age,
+    validate_creatinine,
+    validate_height,
+    validate_induced_aggregation_1_ADP,
+    validate_induced_aggregation_5_ADP,
+    validate_induced_aggregation_15_ARA,
+    validate_mpv,
+    validate_platelet_count,
+    validate_plcr,
+    validate_spontaneous_aggregation,
+    validate_weight,
 )
-import docx
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from logic.word_utils import add_table_with_title
+
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Антиагрегантная терапия")
         self.resize(1000, 800)
-        
+
         # Создаем главный layout
         main_layout = QVBoxLayout(self)
-        
+
         # Создаем область прокрутки
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        
+
         # Создаем контейнер для содержимого
         content_widget = QWidget()
         layout = QVBoxLayout(content_widget)
@@ -44,7 +65,7 @@ class MainWindow(QWidget):
         # === ГРУППА 1: ОСНОВНЫЕ ДАННЫЕ ПАЦИЕНТА ===
         basic_group = QGroupBox("Основные данные пациента")
         basic_layout = QFormLayout()
-        
+
         # Поля ввода
         self.date = QLineEdit()
         self.date.setPlaceholderText("Введите дату (дд.мм.гггг)")
@@ -58,13 +79,13 @@ class MainWindow(QWidget):
         self.examination_type = QComboBox()
         self.examination_type.addItems(["Стационар", "Амбулаторно"])
         basic_layout.addRow("Обследование:", self.examination_type)
-        
+
         # Поля выбора
         self.gender = QComboBox()
         self.gender.addItem("")  # Для необязательного выбора
         self.gender.addItems(["Муж", "Жен"])
         basic_layout.addRow("Пол (выберите):", self.gender)
-        
+
         # Поля ввода
         self.age = QLineEdit()
         self.age.setPlaceholderText("Введите возраст (лет)")
@@ -77,14 +98,14 @@ class MainWindow(QWidget):
         self.height_field = QLineEdit()
         self.height_field.setPlaceholderText("Введите рост (см)")
         basic_layout.addRow("Рост:", self.height_field)
-        
+
         basic_group.setLayout(basic_layout)
         layout.addWidget(basic_group)
 
         # === ГРУППА 2: ГЕНОТИПЫ ===
         genotype_group = QGroupBox("Генотипы")
         genotype_layout = QFormLayout()
-        
+
         self.cyp2c19 = QComboBox()
         self.cyp2c19.addItem("")
         self.cyp2c19.addItems(["CYP 2c19*1", "CYP 2c19*2", "CYP 2c19*3", "CYP 2c19*17"])
@@ -94,14 +115,14 @@ class MainWindow(QWidget):
         self.abcb1.addItem("")
         self.abcb1.addItems(["TT", "TC", "CC"])
         genotype_layout.addRow("Генотип ABCB1:", self.abcb1)
-        
+
         genotype_group.setLayout(genotype_layout)
         layout.addWidget(genotype_group)
 
         # === ГРУППА 3: БИОХИМИЧЕСКИЕ ПОКАЗАТЕЛИ ===
         bio_group = QGroupBox("Биохимические показатели")
         bio_layout = QFormLayout()
-        
+
         self.creatinine = QLineEdit()
         self.creatinine.setPlaceholderText("Введите креатинин (мкмоль/л)")
         bio_layout.addRow("Креатинин:", self.creatinine)
@@ -109,19 +130,19 @@ class MainWindow(QWidget):
         self.creatinine_clearance = QLineEdit()
         self.creatinine_clearance.setPlaceholderText("Введите клиренс креатинина (мл/мин)")
         bio_layout.addRow("Клиренс креатинина:", self.creatinine_clearance)
-        
+
         bio_group.setLayout(bio_layout)
         layout.addWidget(bio_group)
 
         # === ГРУППА 4: ТРОМБОЦИТАРНЫЕ ПОКАЗАТЕЛИ ===
         platelet_group = QGroupBox("Тромбоцитарные показатели")
         platelet_layout = QFormLayout()
-        
+
         # Добавляем поле для количества тромбоцитов
         self.platelet_count = QLineEdit()
         self.platelet_count.setPlaceholderText("Введите количество тромбоцитов (×10⁹/л)")
         platelet_layout.addRow("Количество тромбоцитов, ×10⁹/л:", self.platelet_count)
-        
+
         self.mpv = QLineEdit()
         self.mpv.setPlaceholderText("Введите MPV (фл)")
         platelet_layout.addRow("Величина тромбоцитов MPV:", self.mpv)
@@ -129,14 +150,14 @@ class MainWindow(QWidget):
         self.plcr = QLineEdit()
         self.plcr.setPlaceholderText("Введите PLCR (%)")
         platelet_layout.addRow("Отн. кол-во больших тромбоцитов PLCR:", self.plcr)
-        
+
         platelet_group.setLayout(platelet_layout)
         layout.addWidget(platelet_group)
 
         # === ГРУППА 5: АГРЕГАЦИя ТРОМБОЦИТОВ ===
         aggregation_group = QGroupBox("Агрегация тромбоцитов")
         aggregation_layout = QFormLayout()
-        
+
         self.spontaneous_aggregation = QLineEdit()
         self.spontaneous_aggregation.setPlaceholderText("Введите спонтанную агрегацию (усл.ед.)")
         aggregation_layout.addRow("Спонтанная агрегация:", self.spontaneous_aggregation)
@@ -152,14 +173,14 @@ class MainWindow(QWidget):
         self.induced_aggregation_15_ARA = QLineEdit()
         self.induced_aggregation_15_ARA.setPlaceholderText("Введите % агрегации")
         aggregation_layout.addRow("Индуц. агрегация 15 мкл арахидоновой кислоты:", self.induced_aggregation_15_ARA)
-        
+
         aggregation_group.setLayout(aggregation_layout)
         layout.addWidget(aggregation_group)
 
         # === ГРУППА 6: ОЦЕНКА РИСКА ЖЕЛУДОЧНО-КИШЕЧНОГО КРОВОТЕЧЕНИЯ ===
         gi_bleeding_group = QGroupBox("Оценка риска желудочно-кишечного кровотечения")
         gi_bleeding_layout = QFormLayout()
-        
+
         # Поля для оценки риска ЖКК
         self.ulcer_history = QComboBox()
         self.ulcer_history.addItems(["нет", "да"])
@@ -196,46 +217,46 @@ class MainWindow(QWidget):
         self.alcohol_use = QComboBox()
         self.alcohol_use.addItems(["нет", "да"])
         gi_bleeding_layout.addRow("Хроническое употребление алкоголя:", self.alcohol_use)
-        
+
         gi_bleeding_group.setLayout(gi_bleeding_layout)
         layout.addWidget(gi_bleeding_group)
 
         # === ГРУППА 7: ПРЕПАРАТЫ ===
         drugs_group = QGroupBox("Препараты")
         drugs_layout = QVBoxLayout()
-        
+
         drugs_label = QLabel("Выберите принимаемый препарат:")
         drugs_layout.addWidget(drugs_label)
-        
+
         # Создаем группу радиокнопок для выбора только одного препарата
         self.drugs_button_group = QButtonGroup(self)
-        
+
         self.drug_aspirin = QRadioButton("АСК")
         self.drug_clopidogrel = QRadioButton("Клопидогрел")
         self.drug_aspirin_clopidogrel = QRadioButton("АСК+клопидогрел")
         self.drug_aspirin_ticagrelor = QRadioButton("АСК+тикагрелор")
-        
+
         # Добавляем радиокнопки в группу
         self.drugs_button_group.addButton(self.drug_aspirin, 1)
         self.drugs_button_group.addButton(self.drug_clopidogrel, 2)
         self.drugs_button_group.addButton(self.drug_aspirin_clopidogrel, 3)
         self.drugs_button_group.addButton(self.drug_aspirin_ticagrelor, 4)
-        
+
         # Устанавливаем "АСК" по умолчанию
         self.drug_aspirin.setChecked(True)
-        
+
         drugs_layout.addWidget(self.drug_aspirin)
         drugs_layout.addWidget(self.drug_clopidogrel)
         drugs_layout.addWidget(self.drug_aspirin_clopidogrel)
         drugs_layout.addWidget(self.drug_aspirin_ticagrelor)
-        
+
         drugs_group.setLayout(drugs_layout)
         layout.addWidget(drugs_group)
 
         # === ГРУППА 7: ДЕЙСТВИЯ ===
         actions_group = QGroupBox("⚙️ Действия")
         actions_layout = QVBoxLayout()
-        
+
         self.report_button = QPushButton("📄 Сформировать полный отчет")
         self.report_button.clicked.connect(self.generate_report)
         actions_layout.addWidget(self.report_button)
@@ -244,20 +265,21 @@ class MainWindow(QWidget):
         self.save_doc_button = QPushButton("📝 Сохранить отчет в DOC")
         self.save_doc_button.clicked.connect(self.save_report_to_doc)
         actions_layout.addWidget(self.save_doc_button)
-        
+
         actions_group.setLayout(actions_layout)
         layout.addWidget(actions_group)
 
         # Устанавливаем контейнер в область прокрутки
         scroll_area.setWidget(content_widget)
-        
+
         # Добавляем область прокрутки в главный layout
         main_layout.addWidget(scroll_area)
 
         self.current_report_data = None
 
         # Применяем стили
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QGroupBox {
                 font-weight: bold;
                 border: 2px solid #cccccc;
@@ -316,12 +338,13 @@ class MainWindow(QWidget):
                 border: none;
                 background-color: transparent;
             }
-                """)
+                """
+        )
 
         # Стили для валидации полей
         self.default_style = "padding: 5px; border: 1px solid #bdc3c7; border-radius: 3px; background-color: #f8f9fa;"
         self.error_style = "padding: 5px; background-color: #ffcccc; border: 2px solid red; border-radius: 3px;"
-        
+
         self.age.textChanged.connect(self.validate_age)
         self.weight.textChanged.connect(self.validate_weight)
         self.height_field.textChanged.connect(self.validate_height)
@@ -422,12 +445,11 @@ class MainWindow(QWidget):
             self.validate_spontaneous_aggregation(),
             self.validate_induced_aggregation_1_ADP(),
             self.validate_induced_aggregation_5_ADP(),
-            self.validate_induced_aggregation_15_ARA()
+            self.validate_induced_aggregation_15_ARA(),
         ]
 
         if not all(validations):
-            QMessageBox.warning(self, "Ошибка валидации",
-                              "Пожалуйста, исправьте ошибки в полях (выделены красным)")
+            QMessageBox.warning(self, "Ошибка валидации", "Пожалуйста, исправьте ошибки в полях (выделены красным)")
             return False
         return True
 
@@ -446,7 +468,7 @@ class MainWindow(QWidget):
     def calculate_gi_bleeding_score(self):
         """Рассчитывает сумму баллов для оценки риска ЖКК"""
         score = 0
-        
+
         # Преобразуем "да"/"нет" в 1/0
         if self.ulcer_history.currentText() == "да":
             score += 1
@@ -466,76 +488,104 @@ class MainWindow(QWidget):
             score += 1
         if self.alcohol_use.currentText() == "да":
             score += 1
-            
+
         return score
 
-
     def save_report_to_doc(self):
-        if not hasattr(self, 'current_report_data') or not self.current_report_data:
+        if not hasattr(self, "current_report_data") or not self.current_report_data:
             QMessageBox.warning(self, "Предупреждение", "Сначала сформируйте отчет")
             return
-            
+
         filename, _ = QFileDialog.getSaveFileName(
-            self, 
-            "Сохранить отчет в DOC", 
+            self,
+            "Сохранить отчет в DOC",
             f"медицинский_отчет_{QDate.currentDate().toString('yyyy-MM-dd')}.docx",
-            "Word Documents (*.docx);;Все файлы (*)"
+            "Word Documents (*.docx);;Все файлы (*)",
         )
         if filename:
             try:
                 # Создаем новый документ
                 doc = docx.Document()
-                
+
                 # Добавляем заголовок
-                title = doc.add_heading('РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ', 0)
+                title = doc.add_heading("РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ", 0)
                 title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
+
                 # Добавляем основную информацию
                 doc.add_paragraph(f"Дата обследования: {self.current_report_data['date']}")
                 doc.add_paragraph(f"ФИО: {self.current_report_data['name']}")
                 doc.add_paragraph(f"Возраст: {self.current_report_data['age']}")
                 doc.add_paragraph()
-                
+
                 # Добавляем информацию о препаратах
                 doc.add_paragraph().add_run("Прием антиагрегантов:").bold = True
                 doc.add_paragraph(f"Антиагреганты, которые пациент принимает: {self.current_report_data['drugs']}")
                 doc.add_paragraph()
-                
+
                 # Добавляем таблицы с данными
-                add_table_with_title(doc, 
+                add_table_with_title(
+                    doc,
                     ["Параметр", "Результат пациента", "Критерий", "Оценка", "Прогноз"],
-                    self.current_report_data['main_table_rows'],
-                    "Прием антиагрегатов:"
+                    self.current_report_data["main_table_rows"],
+                    "Прием антиагрегатов:",
                 )
-                
-                add_table_with_title(doc,
-                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Генотип пациента", "Оценка метаболизма", "Рекомендации"],
-                    self.current_report_data['cyp_table_rows'],
-                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ ГЕНОТИПА CYP 2C19"
+
+                add_table_with_title(
+                    doc,
+                    [
+                        "Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая",
+                        "Критерий",
+                        "Состояние агрегации",
+                        "Генотип пациента",
+                        "Оценка метаболизма",
+                        "Рекомендации",
+                    ],
+                    self.current_report_data["cyp_table_rows"],
+                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ ГЕНОТИПА CYP 2C19",
                 )
-                
-                add_table_with_title(doc,
-                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Генотип пациента ABCB1", "Оценка транспорта", "Рекомендации"],
-                    self.current_report_data['abcb1_table_rows'],
-                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ ТРАНСПОРТНОЙ СИСТЕМЫ P-ГЛИКОПРОТЕИНА"
+
+                add_table_with_title(
+                    doc,
+                    [
+                        "Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая",
+                        "Критерий",
+                        "Состояние агрегации",
+                        "Генотип пациента ABCB1",
+                        "Оценка транспорта",
+                        "Рекомендации",
+                    ],
+                    self.current_report_data["abcb1_table_rows"],
+                    "КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ ТРАНСПОРТНОЙ СИСТЕМЫ P-ГЛИКОПРОТЕИНА",
                 )
-                
-                add_table_with_title(doc,
-                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая", "Критерий", "Состояние агрегации", "Рекомендации"],
-                    self.current_report_data['ticagrelor_table_rows'],
-                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ ТИКАГРЕЛОРОМ"
+
+                add_table_with_title(
+                    doc,
+                    [
+                        "Индуцированная агрегация 5 мкМоль АДФ, % Т-крывая",
+                        "Критерий",
+                        "Состояние агрегации",
+                        "Рекомендации",
+                    ],
+                    self.current_report_data["ticagrelor_table_rows"],
+                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ ТИКАГРЕЛОРОМ",
                 )
-                
-                add_table_with_title(doc,
-                    ["Индуцированная агрегация 15 мкл арахидоновой кислоты, % Т-крывая", "Критерий", "Состояние агрегации", "Рекомендации"],
-                    self.current_report_data['aspirin_table_rows'],
-                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ АЦЕТИЛСАЛИЦИЛОВОЙ КИСЛОТОЙ"
+
+                add_table_with_title(
+                    doc,
+                    [
+                        "Индуцированная агрегация 15 мкл арахидоновой кислоты, % Т-крывая",
+                        "Критерий",
+                        "Состояние агрегации",
+                        "Рекомендации",
+                    ],
+                    self.current_report_data["aspirin_table_rows"],
+                    "КОРРЕКЦИЯ ФАРМАКОТЕРАПИИ АЦЕТИЛСАЛИЦИЛОВОЙ КИСЛОТОЙ",
                 )
-                
+
                 # Сохраняем документ
                 doc.save(filename)
                 QMessageBox.information(self, "Сохранение", f"Отчет сохранен в DOC файл:\n{filename}")
-                
+
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить DOC файл:\n{str(e)}")
                 print(f"Ошибка при сохранении DOC: {e}")
@@ -544,45 +594,49 @@ class MainWindow(QWidget):
         try:
             if not self.validate_all_fields():
                 return
-            
+
             # Сбор данных
             date = self.date.text() if self.date.text() else QDate.currentDate().toString("dd.MM.yyyy")
-            name_or_record = self.name_or_record.text() if self.name_or_record.text() else "____________________________________"
+            name_or_record = (
+                self.name_or_record.text() if self.name_or_record.text() else "____________________________________"
+            )
             age = int(self.age.text()) if self.age.text() else 0
             examination_type = self.examination_type.currentText()
             gender = self.gender.currentText()
             weight = float(self.weight.text()) if self.weight.text() else 0
             creatinine = float(self.creatinine.text()) if self.creatinine.text() else 0
-            
+
             # Расчет КК и СКФ
             ccr = calculate_creatinine_clearance(age, weight, gender, creatinine)
             gfr = calculate_ckd_epi(age, gender, creatinine)
-            
+
             # Получаем количество тромбоцитов
             platelet_count = self.platelet_count.text() if self.platelet_count.text() else "______"
-            
+
             # Получаем рекомендации по отмене препаратов
             selected_drug = self.get_selected_drug()
             drug_cancellation = get_drug_cancellation_recommendation(platelet_count, selected_drug)
-            
+
             # Расчет оценки риска ЖКК
             gi_bleeding_score = self.calculate_gi_bleeding_score()
-            
+
             # Получаем данные агрегации
             T_adp = float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else None
             T_ara = float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else None
-            
+
             # Генетические данные
             cyp_genotype = self.cyp2c19.currentText() if self.cyp2c19.currentText() else "______"
             abcb1_genotype = self.abcb1.currentText() if self.abcb1.currentText() else "______"
-            
+
             # Данные о терапии
             selected_drug = self.get_selected_drug()
             drugs_str = selected_drug if selected_drug else "___________"
 
             # Расчет коэффициента прогноза
             try:
-                gender_val = 1 if self.gender.currentText() == "Муж" else 2 if self.gender.currentText() == "Жен" else 0
+                gender_val = (
+                    1 if self.gender.currentText() == "Муж" else 2 if self.gender.currentText() == "Жен" else 0
+                )
                 prognosis_value = mod1(
                     gender_val,
                     float(self.age.text()) if self.age.text() else 0,
@@ -595,26 +649,25 @@ class MainWindow(QWidget):
                     float(self.spontaneous_aggregation.text()) if self.spontaneous_aggregation.text() else 0,
                     float(self.induced_aggregation_1_ADP.text()) if self.induced_aggregation_1_ADP.text() else 0,
                     float(self.induced_aggregation_5_ADP.text()) if self.induced_aggregation_5_ADP.text() else 0,
-                    float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else 0
+                    float(self.induced_aggregation_15_ARA.text()) if self.induced_aggregation_15_ARA.text() else 0,
                 )
-                prognosis_evaluation = mod1_text(prognosis_value)
-            except Exception as e:
+                mod1_text(prognosis_value)
+            except Exception:
                 prognosis_value = "Ошибка расчета"
-                prognosis_evaluation = ("Ошибка", ["Ошибка расчета коэффициента прогноза"])
 
             # Сохраняем данные для DOC экспорта
             self.current_report_data = {
-                'date': date,
-                'name_or_record': name_or_record,
-                'examination_type': examination_type,
-                'age': age,
-                'drugs': drugs_str,
-                'main_table_rows': [],
-                'cyp_table_rows': [],
-                'abcb1_table_rows': [],
-                'ticagrelor_table_rows': [],
-                'aspirin_table_rows': [],
-                'gi_bleeding_table_rows': []
+                "date": date,
+                "name_or_record": name_or_record,
+                "examination_type": examination_type,
+                "age": age,
+                "drugs": drugs_str,
+                "main_table_rows": [],
+                "cyp_table_rows": [],
+                "abcb1_table_rows": [],
+                "ticagrelor_table_rows": [],
+                "aspirin_table_rows": [],
+                "gi_bleeding_table_rows": [],
             }
 
             # Формируем HTML отчет и данные для таблиц
@@ -635,12 +688,12 @@ class MainWindow(QWidget):
             </head>
             <body>
                 <div class="header">РЕЗУЛЬТАТЫ ИССЛЕДОВАНИЯ</div>
-                
+
                 <p><strong>Дата обследования:</strong> {date}</p>
                 <p><strong>ФИО / № истории болезни:</strong> {name_or_record}</p>
                 <p><strong>Обследование:</strong> {examination_type}</p>
                 <p><strong>Возраст:</strong> {age}</p>
-                
+
                 <div class="section">
                     <div class="section-title">Прием антиагрегантов:</div>
                     <p><strong>Антиагреганты, которые пациент принимает:</strong> {drugs_str}</p>
@@ -665,37 +718,33 @@ class MainWindow(QWidget):
                     criterion = "≥ 2.09"
                     evaluation = "Риск повторных сосудистых событий"
                     prognosis_text = "Высокий риск повторного инфаркта и летальный исход"
-                main_table_rows.append([
-                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
-                    f"{prognosis_value:.3f}",
-                    criterion,
-                    evaluation,
-                    prognosis_text
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
-                    f"{prognosis_value:.3f}",
-                    criterion,
-                    evaluation,
-                    prognosis_text
-                ])
+                main_table_rows.append(
+                    [
+                        "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
+                        f"{prognosis_value:.3f}",
+                        criterion,
+                        evaluation,
+                        prognosis_text,
+                    ]
+                )
+
+                self.current_report_data["main_table_rows"].append(
+                    [
+                        "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
+                        f"{prognosis_value:.3f}",
+                        criterion,
+                        evaluation,
+                        prognosis_text,
+                    ]
+                )
             else:
-                main_table_rows.append([
-                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
-                    prognosis_value,
-                    "-",
-                    "-",
-                    "-"
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Коэффициент прогноза неблагоприятных событий пациента с ОКС",
-                    prognosis_value,
-                    "-",
-                    "-",
-                    "-"
-                ])
+                main_table_rows.append(
+                    ["Коэффициент прогноза неблагоприятных событий пациента с ОКС", prognosis_value, "-", "-", "-"]
+                )
+
+                self.current_report_data["main_table_rows"].append(
+                    ["Коэффициент прогноза неблагоприятных событий пациента с ОКС", prognosis_value, "-", "-", "-"]
+                )
 
             # Строка 2: Индуцированная агрегация 5 мкМоль АДФ
             if T_adp is not None:
@@ -712,37 +761,31 @@ class MainWindow(QWidget):
                     evaluation_adp = "Агрегация тромбоцитов сохранена"
                     prognosis_adp = "Терапия неэффективна"
 
-                main_table_rows.append([
-                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
-                    f"{T_adp}%",
-                    criterion_adp,
-                    evaluation_adp,
-                    prognosis_adp
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
-                    f"{T_adp}%",
-                    criterion_adp,
-                    evaluation_adp,
-                    prognosis_adp
-                ])
+                main_table_rows.append(
+                    [
+                        "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                        f"{T_adp}%",
+                        criterion_adp,
+                        evaluation_adp,
+                        prognosis_adp,
+                    ]
+                )
+
+                self.current_report_data["main_table_rows"].append(
+                    [
+                        "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
+                        f"{T_adp}%",
+                        criterion_adp,
+                        evaluation_adp,
+                        prognosis_adp,
+                    ]
+                )
             else:
-                main_table_rows.append([
-                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
-                    "______",
-                    "-",
-                    "-",
-                    "-"
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
-                    "______",
-                    "-",
-                    "-",
-                    "-"
-                ])
+                main_table_rows.append(["Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая", "______", "-", "-", "-"])
+
+                self.current_report_data["main_table_rows"].append(
+                    ["Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая", "______", "-", "-", "-"]
+                )
 
             # Строка 3: Генотип CYP 2C19
             if cyp_genotype != "______":
@@ -759,37 +802,33 @@ class MainWindow(QWidget):
                     evaluation_cyp = "Неизвестный генотип"
                     prognosis_cyp = "Требуется дополнительное исследование"
 
-                main_table_rows.append([
-                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
-                    cyp_genotype,
-                    cyp_genotype,
-                    evaluation_cyp,
-                    prognosis_cyp
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
-                    cyp_genotype,
-                    cyp_genotype,
-                    evaluation_cyp,
-                    prognosis_cyp
-                ])
+                main_table_rows.append(
+                    [
+                        "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
+                        cyp_genotype,
+                        cyp_genotype,
+                        evaluation_cyp,
+                        prognosis_cyp,
+                    ]
+                )
+
+                self.current_report_data["main_table_rows"].append(
+                    [
+                        "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
+                        cyp_genotype,
+                        cyp_genotype,
+                        evaluation_cyp,
+                        prognosis_cyp,
+                    ]
+                )
             else:
-                main_table_rows.append([
-                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
-                    "______",
-                    "-",
-                    "-",
-                    "-"
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента",
-                    "______",
-                    "-",
-                    "-",
-                    "-"
-                ])
+                main_table_rows.append(
+                    ["Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента", "______", "-", "-", "-"]
+                )
+
+                self.current_report_data["main_table_rows"].append(
+                    ["Генотип CYP 2C19, влияющий на метаболизм клопидогрела у пациента", "______", "-", "-", "-"]
+                )
 
             # Строка 4: Генотип ABCB1
             if abcb1_genotype != "______":
@@ -806,37 +845,31 @@ class MainWindow(QWidget):
                     evaluation_abcb1 = "Неизвестный генотип"
                     prognosis_abcb1 = "Требуется дополнительное исследование"
 
-                main_table_rows.append([
-                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
-                    abcb1_genotype,
-                    abcb1_genotype,
-                    evaluation_abcb1,
-                    prognosis_abcb1
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
-                    abcb1_genotype,
-                    abcb1_genotype,
-                    evaluation_abcb1,
-                    prognosis_abcb1
-                ])
+                main_table_rows.append(
+                    [
+                        "Генотип ABCB1, влияющий на транспорт клопидогрела",
+                        abcb1_genotype,
+                        abcb1_genotype,
+                        evaluation_abcb1,
+                        prognosis_abcb1,
+                    ]
+                )
+
+                self.current_report_data["main_table_rows"].append(
+                    [
+                        "Генотип ABCB1, влияющий на транспорт клопидогрела",
+                        abcb1_genotype,
+                        abcb1_genotype,
+                        evaluation_abcb1,
+                        prognosis_abcb1,
+                    ]
+                )
             else:
-                main_table_rows.append([
-                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
-                    "______",
-                    "-",
-                    "-",
-                    "-"
-                ])
-                
-                self.current_report_data['main_table_rows'].append([
-                    "Генотип ABCB1, влияющий на транспорт клопидогрела",
-                    "______",
-                    "-",
-                    "-",
-                    "-"
-                ])
+                main_table_rows.append(["Генотип ABCB1, влияющий на транспорт клопидогрела", "______", "-", "-", "-"])
+
+                self.current_report_data["main_table_rows"].append(
+                    ["Генотип ABCB1, влияющий на транспорт клопидогрела", "______", "-", "-", "-"]
+                )
 
             # Добавляем основную таблицу в отчет
             html_report += format_html_table_advanced(main_table_headers, main_table_rows)
@@ -862,28 +895,30 @@ class MainWindow(QWidget):
                 "Состояние агрегации",
                 "Генотип пациента",
                 "Оценка метаболизма",
-                "Рекомендации"
+                "Рекомендации",
             ]
-            
+
             cyp_table_rows = []
             if T_adp is not None and cyp_genotype != "______":
                 result = mod2(T_adp, cyp_genotype)
                 state = result[0]
                 metabolism = result[1]
                 recommendation = result[2]
-                
+
                 if T_adp <= 10:
                     criterion = "T ≤ 10 %"
                 elif 10 < T_adp < 25:
                     criterion = "10 < T < 25 %"
                 else:
                     criterion = "T ≥ 25 %"
-                
+
                 cyp_table_rows.append([f"{T_adp}%", criterion, state, cyp_genotype, metabolism, recommendation])
-                self.current_report_data['cyp_table_rows'].append([f"{T_adp}%", criterion, state, cyp_genotype, metabolism, recommendation])
+                self.current_report_data["cyp_table_rows"].append(
+                    [f"{T_adp}%", criterion, state, cyp_genotype, metabolism, recommendation]
+                )
             else:
                 cyp_table_rows.append(["______", "-", "-", "-", "-", "-"])
-                self.current_report_data['cyp_table_rows'].append(["______", "-", "-", "-", "-", "-"])
+                self.current_report_data["cyp_table_rows"].append(["______", "-", "-", "-", "-", "-"])
 
             html_report += format_html_table_advanced(cyp_table_headers, cyp_table_rows)
             html_report += "</div>"
@@ -891,7 +926,10 @@ class MainWindow(QWidget):
             # Таблица 3: Коррекция терапии клопидогрелом (ABCB1)
             html_report += """
             <div class="section">
-                <div class="section-title">КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ ТРАНСПОРТНОЙ СИСТЕМЫ Р-ГЛИКОПРОТЕИНА</div>
+                <div class="section-title">
+                    КОРРЕКЦИЯ ТЕРАПИИ КЛОПИДОГРЕЛОМ С УЧЕТОМ АКТИВНОСТИ
+                    ТРАНСПОРТНОЙ СИСТЕМЫ Р-ГЛИКОПРОТЕИНА
+                </div>
             """
 
             abcb1_table_headers = [
@@ -900,28 +938,30 @@ class MainWindow(QWidget):
                 "Состояние агрегации",
                 "Генотип пациента ABCB1",
                 "Оценка транспорта",
-                "Рекомендации"
+                "Рекомендации",
             ]
-            
+
             abcb1_table_rows = []
             if T_adp is not None and abcb1_genotype != "______":
                 result = mod3(T_adp, abcb1_genotype)
                 state = result[0]
                 transport = result[1]
                 recommendation = result[2]
-                
+
                 if T_adp <= 10:
                     criterion = "T ≤ 10 %"
                 elif 10 < T_adp < 25:
                     criterion = "10 < T < 25 %"
                 else:
                     criterion = "T ≥ 25 %"
-                
+
                 abcb1_table_rows.append([f"{T_adp}%", criterion, state, abcb1_genotype, transport, recommendation])
-                self.current_report_data['abcb1_table_rows'].append([f"{T_adp}%", criterion, state, abcb1_genotype, transport, recommendation])
+                self.current_report_data["abcb1_table_rows"].append(
+                    [f"{T_adp}%", criterion, state, abcb1_genotype, transport, recommendation]
+                )
             else:
                 abcb1_table_rows.append(["______", "-", "-", "-", "-", "-"])
-                self.current_report_data['abcb1_table_rows'].append(["______", "-", "-", "-", "-", "-"])
+                self.current_report_data["abcb1_table_rows"].append(["______", "-", "-", "-", "-", "-"])
 
             html_report += format_html_table_advanced(abcb1_table_headers, abcb1_table_rows)
             html_report += "</div>"
@@ -936,27 +976,29 @@ class MainWindow(QWidget):
                 "Индуцированная агрегация 5 мкМоль АДФ, % Т-кривая",
                 "Критерий",
                 "Состояние агрегации",
-                "Рекомендации"
+                "Рекомендации",
             ]
-            
+
             ticagrelor_table_rows = []
             if T_adp is not None:
                 result = mod4(T_adp)
                 state = result[0]
                 recommendation = result[1]
-                
+
                 if T_adp <= 10:
                     criterion = "T ≤ 10 %"
                 elif 10 < T_adp < 25:
                     criterion = "10 < T < 25 %"
                 else:
                     criterion = "T ≥ 25 %"
-                
+
                 ticagrelor_table_rows.append([f"{T_adp}%", criterion, state, recommendation])
-                self.current_report_data['ticagrelor_table_rows'].append([f"{T_adp}%", criterion, state, recommendation])
+                self.current_report_data["ticagrelor_table_rows"].append(
+                    [f"{T_adp}%", criterion, state, recommendation]
+                )
             else:
                 ticagrelor_table_rows.append(["______", "-", "-", "-"])
-                self.current_report_data['ticagrelor_table_rows'].append(["______", "-", "-", "-"])
+                self.current_report_data["ticagrelor_table_rows"].append(["______", "-", "-", "-"])
 
             html_report += format_html_table_advanced(ticagrelor_table_headers, ticagrelor_table_rows)
             html_report += "</div>"
@@ -971,27 +1013,27 @@ class MainWindow(QWidget):
                 "Индуцированная агрегация 15 мкл арахидоновой кислоты, % Т-кривая",
                 "Критерий",
                 "Состояние агрегации",
-                "Рекомендации"
+                "Рекомендации",
             ]
-            
+
             aspirin_table_rows = []
             if T_ara is not None:
                 result = mod5(T_ara)
                 state = result[0]
                 recommendation = result[1]
-                
+
                 if T_ara <= 2:
                     criterion = "Т ≤ 2 %"
                 elif 2.1 <= T_ara <= 7.9:
                     criterion = "2.1 ≤ Т ≤ 7.9 %"
                 else:  # T_ara >= 8.0
                     criterion = "Т ≥ 8.0 %"
-                
+
                 aspirin_table_rows.append([f"{T_ara}%", criterion, state, recommendation])
-                self.current_report_data['aspirin_table_rows'].append([f"{T_ara}%", criterion, state, recommendation])
+                self.current_report_data["aspirin_table_rows"].append([f"{T_ara}%", criterion, state, recommendation])
             else:
                 aspirin_table_rows.append(["______", "-", "-", "-"])
-                self.current_report_data['aspirin_table_rows'].append(["______", "-", "-", "-"])
+                self.current_report_data["aspirin_table_rows"].append(["______", "-", "-", "-"])
 
             html_report += format_html_table_advanced(aspirin_table_headers, aspirin_table_rows)
             html_report += "</div>"
@@ -1010,16 +1052,40 @@ class MainWindow(QWidget):
 
             gi_bleeding_headers = ["Параметр", "Значение", "Баллы"]
             gi_bleeding_rows = [
-                ["Язвенная болезнь в анамнезе", self.ulcer_history.currentText(), "1" if self.ulcer_history.currentText() == "да" else "0"],
-                ["Желудочно-кишечное кровотечение в анамнезе", self.gi_bleeding_history.currentText(), "1" if self.gi_bleeding_history.currentText() == "да" else "0"],
-                ["Использование НПВП", self.nsaid_use.currentText(), "1" if self.nsaid_use.currentText() == "да" else "0"],
+                [
+                    "Язвенная болезнь в анамнезе",
+                    self.ulcer_history.currentText(),
+                    "1" if self.ulcer_history.currentText() == "да" else "0",
+                ],
+                [
+                    "Желудочно-кишечное кровотечение в анамнезе",
+                    self.gi_bleeding_history.currentText(),
+                    "1" if self.gi_bleeding_history.currentText() == "да" else "0",
+                ],
+                [
+                    "Использование НПВП",
+                    self.nsaid_use.currentText(),
+                    "1" if self.nsaid_use.currentText() == "да" else "0",
+                ],
                 ["Прием ГКС", self.steroid_use.currentText(), "1" if self.steroid_use.currentText() == "да" else "0"],
                 ["Возраст ≥ 65 лет", self.age_65.currentText(), "1" if self.age_65.currentText() == "да" else "0"],
                 ["Диспепсия", self.dyspepsia.currentText(), "1" if self.dyspepsia.currentText() == "да" else "0"],
-                ["Желудочно-пищеводный рефлюкс", self.gerd.currentText(), "1" if self.gerd.currentText() == "да" else "0"],
-                ["Инфицирование H. pylori", self.h_pylori.currentText(), "1" if self.h_pylori.currentText() == "да" else "0"],
-                ["Хроническое употребление алкоголя", self.alcohol_use.currentText(), "1" if self.alcohol_use.currentText() == "да" else "0"],
-                ["Всего - баллов", "", str(gi_bleeding_score)]
+                [
+                    "Желудочно-пищеводный рефлюкс",
+                    self.gerd.currentText(),
+                    "1" if self.gerd.currentText() == "да" else "0",
+                ],
+                [
+                    "Инфицирование H. pylori",
+                    self.h_pylori.currentText(),
+                    "1" if self.h_pylori.currentText() == "да" else "0",
+                ],
+                [
+                    "Хроническое употребление алкоголя",
+                    self.alcohol_use.currentText(),
+                    "1" if self.alcohol_use.currentText() == "да" else "0",
+                ],
+                ["Всего - баллов", "", str(gi_bleeding_score)],
             ]
 
             html_report += format_html_table_advanced(gi_bleeding_headers, gi_bleeding_rows)
@@ -1038,7 +1104,7 @@ class MainWindow(QWidget):
                 ["Рекомендация по отмене", drug_cancellation],
                 ["АСК - при уровне тромбоцитов", "≤10×10⁹/л"],
                 ["Клопидогрел - при уровне тромбоцитов", "≤30×10⁹/л"],
-                ["Тикагрелор - при уровне тромбоцитов", "≤50×10⁹/л"]
+                ["Тикагрелор - при уровне тромбоцитов", "≤50×10⁹/л"],
             ]
 
             html_report += format_html_table_advanced(drug_cancellation_headers, drug_cancellation_rows)
@@ -1072,8 +1138,10 @@ class MainWindow(QWidget):
             report_dialog.exec()
 
         except Exception as e:
-            QMessageBox.critical(self, "Ошибка генерации отчета", 
-                            f"Произошла ошибка при формировании отчета:\n{str(e)}")
+            QMessageBox.critical(
+                self, "Ошибка генерации отчета", f"Произошла ошибка при формировании отчета:\n{str(e)}"
+            )
             print(f"Ошибка в generate_report: {e}")
             import traceback
+
             traceback.print_exc()
